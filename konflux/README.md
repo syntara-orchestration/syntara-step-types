@@ -5,7 +5,8 @@ of the five node images. They adapt Syntara's bundled container-pipeline pattern
 They are **not active pipelines** and must not be copied into `.tekton` unchanged.
 
 Prepare one Application and five Components using the tenant's supported onboarding
-workflow. Use the same repository and branch for each, context `.`, and these paths:
+workflow. Use `https://github.com/syntara-orchestration/syntara-step-types` and branch
+`devel` for each, context `.`, and these paths:
 
 | Component | Containerfile |
 | --- | --- |
@@ -25,7 +26,6 @@ Build all five on PR/push initially, so a shared change has one coherent release
 | --- | --- |
 | `__APPLICATION__` | Application name in the selected tenant |
 | `__TENANT__` | Konflux namespace; confirm whether existing `nexus-tenant` is appropriate |
-| `__BRANCH__` | Actual repository development branch |
 | `__IMAGE_PREFIX__` | Registry/organization path without trailing slash |
 | `__BUILD_BUNDLE__` | Approved container pipeline bundle including immutable digest |
 | `__BUNDLE_PULL_SECRET__` | Tenant's bundle resolver pull secret |

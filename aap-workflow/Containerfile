@@ -16,7 +16,7 @@ RUN chmod -R a+rX /opt/nodes
 ENV PATH="/opt/nodes/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     SYNTARA_NODE_MODULE=syntara_node_aap_workflow
-ARG SOURCE_URL=https://github.com/syntara-orchestration/syntara
+ARG SOURCE_URL=https://github.com/syntara-orchestration/syntara-step-types
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.revision="${VCS_REF}" \
     org.opencontainers.image.title="Syntara aap-workflow node" \

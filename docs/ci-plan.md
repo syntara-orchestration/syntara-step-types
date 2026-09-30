@@ -1,6 +1,8 @@
 # Standalone node repository: CI and Konflux plan
 
-Prepared 30 September 2026. Proposed repository name: `syntara-step-types` (placeholder until confirmed).
+Prepared 30 September 2026. Repository: `syntara-orchestration/syntara-step-types`, development branch `devel`.
+
+This document records the implementation plan. See the root README for current CI and onboarding status.
 
 ## Recommendation
 
@@ -144,7 +146,7 @@ Phases 1–2 can start before the new GitHub repository is ready. Phase 1 should
 
 ## Values needed before activation
 
-- Final repository name and initial branch. Proposed default: `main`, one active development stream.
+- Confirmed repository: `syntara-orchestration/syntara-step-types`; initial development branch: `devel`.
 - Confirmed Konflux tenant, onboarding owner and supported build bundle. Existing Syntara configuration names `nexus-tenant`; reuse requires confirmation.
 - Destination image registry/repositories, release owner and policy requirements.
 - Protocol package distribution location. Proposed default: a versioned wheel; exact Git pin as a transitional option.

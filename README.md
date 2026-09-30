@@ -1,8 +1,9 @@
 # Syntara workflow node containers
 
-Local staging repository for five SDK-based gRPC workflow node images. The new
-upstream repository has not been connected yet. See [source provenance](docs/SOURCE.md)
-and [upstream handoff](docs/upstream.md).
+Five SDK-based gRPC workflow node images maintained in
+[syntara-orchestration/syntara-step-types](https://github.com/syntara-orchestration/syntara-step-types).
+Contributions target `devel`. See [source provenance](docs/SOURCE.md) for the
+original Syntara implementation and revision.
 
 | Workflow type | Package folder / image suffix |
 | --- | --- |
@@ -64,23 +65,24 @@ Builds target the container engine's architecture. GitHub uses Linux AMD64;
 production Konflux templates propose AMD64 and ARM64. Multiarchitecture release
 builds still need validation during onboarding.
 
-Publish only after choosing a real registry and upstream source URL:
+Publish after choosing a registry and release version:
 
 ```bash
-make node-images REGISTRY=quay.io/YOUR_ORG TAG=YOUR_VERSION SOURCE_URL=https://github.com/YOUR_ORG/YOUR_REPO
+make node-images REGISTRY=quay.io/YOUR_ORG TAG=YOUR_VERSION
 make push-node-images REGISTRY=quay.io/YOUR_ORG TAG=YOUR_VERSION
 ```
 
 `VCS_REF` defaults to the current Git commit and can be overridden for builds from
-an exported checkout. Image source labels currently default to the original
-Syntara repository; CI supplies its actual repository URL. Deploy by image digest.
+an exported checkout. Image source labels default to this repository; forks can
+override `SOURCE_URL`. Deploy by image digest.
 
 ## CI and Konflux status
 
-[Nodes CI](.github/workflows/ci.yml) runs on pull requests, pushes to `main`, merge
-queue events and manual dispatch. It runs quality, generated-file, test-matrix
-and five-image smoke gates. Configure `nodes-ci` as the required branch check once
-upstream is connected. It has read permissions and does not publish images.
+[Nodes CI](.github/workflows/ci.yml) runs on pull requests targeting `devel`, pushes
+to `devel`, merge queue events for `devel` and manual dispatch. It runs quality,
+generated-file, test-matrix and five-image smoke gates. Configure `nodes-ci` as
+the required branch check after the first successful hosted run. It has read
+permissions and does not publish images.
 
 [Konflux templates](konflux/README.md) prepare ten PR/push PipelineRuns, one pair
 per image. They are deliberately outside `.tekton` and have unresolved onboarding

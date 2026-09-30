@@ -2,9 +2,11 @@ name: Nodes CI
 
 on:
   pull_request:
+    branches: [devel]
   push:
-    branches: [main]
+    branches: [devel]
   merge_group:
+    branches: [devel]
   workflow_dispatch:
 
 permissions:

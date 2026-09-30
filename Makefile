@@ -4,7 +4,7 @@ REGISTRY ?= localhost
 TAG ?= migration-test
 NODE ?= http-request
 UV ?= uv
-SOURCE_URL ?= https://github.com/syntara-orchestration/syntara
+SOURCE_URL ?= https://github.com/syntara-orchestration/syntara-step-types
 VCS_REF ?= $(shell git rev-parse HEAD)
 
 .PHONY: install typecheck test node-images node-image push-node-images push-node-image manifests
