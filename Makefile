@@ -1,7 +1,13 @@
-NODES :=
+NODES := http-request script
+CONTAINER_ENGINE ?= podman
+REGISTRY ?= localhost
+TAG ?= migration-test
+NODE ?= http-request
 UV ?= uv
+SOURCE_URL ?= https://github.com/syntara-orchestration/syntara-step-types
+VCS_REF ?= $(shell git rev-parse HEAD)
 
-.PHONY: install typecheck test
+.PHONY: install typecheck test node-images node-image push-node-images push-node-image
 install:
 	$(UV) sync --frozen --all-packages --group dev
 
@@ -30,6 +36,24 @@ check-generated:
 	for file in node_pb2.py node_pb2.pyi node_pb2_grpc.py node_pb2_grpc.pyi; do \
 	  diff -u "_protocol/src/syntara_node_protocol/$$file" "$$tmp/syntara_node_protocol/$$file"; \
 	done
+
+node-images:
+	@set -e; for node in $(NODES); do $(MAKE) node-image NODE=$$node; done
+
+node-image:
+	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE'; exit 2;; esac
+	$(CONTAINER_ENGINE) build --build-arg SOURCE_URL="$(SOURCE_URL)" --build-arg VCS_REF="$(VCS_REF)" -f $(NODE)/Containerfile -t $(REGISTRY)/syntara-node-$(NODE):$(TAG) .
+
+push-node-images:
+	@set -e; for node in $(NODES); do $(MAKE) push-node-image NODE=$$node; done
+
+push-node-image:
+	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE'; exit 2;; esac
+	$(CONTAINER_ENGINE) push $(REGISTRY)/syntara-node-$(NODE):$(TAG)
+
+.PHONY: smoke-images
+smoke-images:
+	CONTAINER_ENGINE=$(CONTAINER_ENGINE) REGISTRY=$(REGISTRY) TAG=$(TAG) $(UV) run --frozen --all-packages python tools/smoke_images.py
 
 .PHONY: proto
 proto:

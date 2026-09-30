@@ -1,0 +1,158 @@
+"""Exercise the available images as arbitrary UIDs against a disposable local HTTP service."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import time
+import uuid
+from http import HTTPStatus
+from typing import Any
+
+ENGINE = os.environ.get("CONTAINER_ENGINE", "podman")
+REGISTRY = os.environ.get("REGISTRY", "localhost")
+TAG = os.environ.get("TAG", "migration-test")
+SERVER = """
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import json
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args): pass
+    def reply(self, data):
+        payload=json.dumps(data).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+    def do_GET(self): self.reply({"hello":"world"})
+HTTPServer(("0.0.0.0",8080),Handler).serve_forever()
+"""
+
+
+def command(*args: str, data: str | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run a container command without a shell or inherited invocation secrets."""
+    return subprocess.run([ENGINE, *args], input=data, text=True, capture_output=True, check=check, timeout=90)  # noqa: S603
+
+
+def check_output(case: str, output: dict[str, Any]) -> None:
+    """Check externally observable results for each fixture invocation."""
+    if case == "http-request":
+        assert output["status_code"] == HTTPStatus.OK  # noqa: S101
+        assert output["body"]["hello"] == "world"  # noqa: S101
+    elif case == "script-failure":
+        assert output["return_code"] == 7  # noqa: S101, PLR2004 - fixture exit code
+        assert output["stdout"] == "partial"  # noqa: S101
+    elif case == "script-bash":
+        assert output["stdout"] == '{"answer":42}'  # noqa: S101
+        assert output["stdout_json"] is None  # noqa: S101 - Bash preserves raw stdout
+    elif case == "script":
+        assert output["stdout_json"] == {"answer": 42}  # noqa: S101
+
+
+def main() -> None:
+    """Create test-only resources, assert node results, then remove our resources."""
+    suffix = uuid.uuid4().hex[:10]
+    network, server = f"syntara-node-smoke-{suffix}", f"syntara-node-fixture-{suffix}"
+    command("network", "create", network)
+    try:
+        command(
+            "run",
+            "--rm",
+            "-d",
+            "--name",
+            server,
+            "--network",
+            network,
+            "--network-alias",
+            "mock-service",
+            "--entrypoint",
+            "python",
+            f"{REGISTRY}/syntara-node-script:{TAG}",
+            "-c",
+            SERVER,
+        )
+        for _ in range(30):
+            probe = command(
+                "exec",
+                server,
+                "python",
+                "-c",
+                "import urllib.request; urllib.request.urlopen('http://localhost:8080')",
+                check=False,
+            )
+            if probe.returncode == 0:
+                break
+            time.sleep(0.2)
+        else:
+            message = "Mock HTTP service did not start"
+            raise RuntimeError(message)
+        base = "http://mock-service:8080"
+        cases = {
+            "http-request": {
+                "inputs": {"method": "GET", "url": base},
+                "settings": {"workflow_http_request_allowed_hosts": ["mock-service"]},
+            },
+            "script": {"inputs": {"language": "python", "code": "print('{\"answer\":42}')"}},
+            "script-bash": {"inputs": {"language": "bash", "code": "printf '{\"answer\":42}'"}},
+            "script-failure": {"inputs": {"language": "bash", "code": "printf partial; exit 7"}},
+        }
+        for case, invocation in cases.items():
+            name = "script" if case.startswith("script-") else case
+            expected_status = 1 if case == "script-failure" else 0
+            node_container = f"syntara-node-{name}-{suffix}"
+            command(
+                "run",
+                "--rm",
+                "-d",
+                "--name",
+                node_container,
+                "--network",
+                network,
+                "--read-only",
+                "--tmpfs",
+                "/tmp",  # noqa: S108 - container-local tmpfs
+                "--user",
+                "1001230000:0",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                f"{REGISTRY}/syntara-node-{name}:{TAG}",
+            )
+            try:
+                result = command(
+                    "run",
+                    "--rm",
+                    "-i",
+                    "--network",
+                    f"container:{node_container}",
+                    "--entrypoint",
+                    "python",
+                    f"{REGISTRY}/syntara-node-script:{TAG}",
+                    "-m",
+                    "syntara_node_protocol",
+                    "--address",
+                    "127.0.0.1:50051",
+                    data=json.dumps({"version": 1, **invocation}),
+                    check=False,
+                )
+            finally:
+                command("rm", "-f", node_container, check=False)
+            frames = [json.loads(line) for line in result.stdout.splitlines()]
+            if (
+                result.returncode != expected_status
+                or not frames
+                or frames[-1]["result"]["StatusCode"] != expected_status
+            ):
+                message = f"{case} failed: {result.stdout}\n{result.stderr}"
+                raise RuntimeError(message)
+            check_output(case, frames[-1]["result"]["Result"])
+            print(f"PASS {case}: gRPC, arbitrary UID, read-only filesystem, SDK result", flush=True)
+    finally:
+        command("rm", "-f", server, check=False)
+        command("network", "rm", network, check=False)
+
+
+if __name__ == "__main__":
+    main()
