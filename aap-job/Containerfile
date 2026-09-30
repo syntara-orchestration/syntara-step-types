@@ -16,8 +16,11 @@ RUN chmod -R a+rX /opt/nodes
 ENV PATH="/opt/nodes/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     SYNTARA_NODE_MODULE=syntara_node_aap_job
-LABEL org.opencontainers.image.title="Syntara aap-job node" \
-    org.opencontainers.image.source="https://github.com/syntara-orchestration/syntara"
+ARG SOURCE_URL=https://github.com/syntara-orchestration/syntara
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.title="Syntara aap-job node" \
+    org.opencontainers.image.source="${SOURCE_URL}"
 USER 1001
 EXPOSE 50051
 ENTRYPOINT ["python", "-m", "syntara_node_runtime.server"]

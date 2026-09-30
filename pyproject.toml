@@ -7,6 +7,8 @@ dependencies = []
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-cov>=7,<8",
+    "ruff==0.14.3",
     "pytest-asyncio>=0.24",
     "respx>=0.22",
     "mypy>=1.8",
@@ -44,3 +46,31 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["syntara_sdk.*"]
 follow_untyped_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["*_pb2.py", "*_pb2.pyi", "*_pb2_grpc.py", "*_pb2_grpc.pyi"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D203", "D213", "COM812", "PLR0913", "TRY300", "FIX002"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "D104"]
+"tools/**/*.py" = ["T201", "INP001", "PLC0415", "ARG001", "ANN401", "TRY003", "EM102"]
+"**/tests/**/*.py" = [
+    "S101", "ANN001", "ANN201", "D102", "D103", "PLR2004", "TD002", "TD003",
+    "ARG001", "ARG002", "SLF001", "PERF401", "S110", "BLE001", "SIM105", "PLC0415",
+    "D401", "PT011", "PT012", "PGH003", "SIM117", "INP001", "ARG005", "ANN003", "S603",
+]
+
+[tool.coverage.run]
+source = [
+    "syntara_node_runtime", "syntara_node_protocol", "syntara_node_http_request",
+    "syntara_node_agent", "syntara_node_script", "syntara_node_aap_job", "syntara_node_aap_workflow",
+]
+omit = ["*/node_pb2*", "*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true

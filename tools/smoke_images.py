@@ -1,4 +1,3 @@
-# ruff: noqa: INP001, T201
 """Exercise all five images as arbitrary UIDs against a disposable local HTTP service."""
 
 from __future__ import annotations
@@ -9,6 +8,7 @@ import subprocess
 import time
 import uuid
 from http import HTTPStatus
+from typing import Any
 
 ENGINE = os.environ.get("CONTAINER_ENGINE", "podman")
 REGISTRY = os.environ.get("REGISTRY", "localhost")
@@ -37,6 +37,25 @@ HTTPServer(("0.0.0.0",8080),Handler).serve_forever()
 def command(*args: str, data: str | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
     """Run a container command without a shell or inherited invocation secrets."""
     return subprocess.run([ENGINE, *args], input=data, text=True, capture_output=True, check=check, timeout=90)  # noqa: S603
+
+
+def check_output(case: str, output: dict[str, Any]) -> None:
+    """Check externally observable results for each fixture invocation."""
+    if case == "http-request":
+        assert output["status_code"] == HTTPStatus.OK  # noqa: S101
+        assert output["body"]["hello"] == "world"  # noqa: S101
+    elif case == "script-failure":
+        assert output["return_code"] == 7  # noqa: S101, PLR2004 - fixture exit code
+        assert output["stdout"] == "partial"  # noqa: S101
+    elif case == "script-bash":
+        assert output["stdout"] == '{"answer":42}'  # noqa: S101
+        assert output["stdout_json"] is None  # noqa: S101 - Bash preserves raw stdout
+    elif case == "script":
+        assert output["stdout_json"] == {"answer": 42}  # noqa: S101
+    elif case == "agent":
+        assert output["invocation_id"] == ID  # noqa: S101
+    else:
+        assert output["artifacts"] == {"answer": 42}  # noqa: S101
 
 
 def main() -> None:
@@ -83,6 +102,8 @@ def main() -> None:
                 "settings": {"workflow_http_request_allowed_hosts": ["mock-service"]},
             },
             "script": {"inputs": {"language": "python", "code": "print('{\"answer\":42}')"}},
+            "script-bash": {"inputs": {"language": "bash", "code": "printf '{\"answer\":42}'"}},
+            "script-failure": {"inputs": {"language": "bash", "code": "printf partial; exit 7"}},
             "agent": {
                 "inputs": {"prompt": "hello"},
                 "workflow_context": {
@@ -95,7 +116,9 @@ def main() -> None:
             "aap-job": {"inputs": {"job_template_id": 1}},
             "aap-workflow": {"inputs": {"workflow_job_template_id": 1}},
         }
-        for name, invocation in cases.items():
+        for case, invocation in cases.items():
+            name = "script" if case.startswith("script-") else case
+            expected_status = 1 if case == "script-failure" else 0
             if name.startswith("aap-"):
                 invocation.update(
                     credentials={"resolved": {"extra_vars": {"aap_oauth_token": "test-token"}}},
@@ -141,20 +164,15 @@ def main() -> None:
             finally:
                 command("rm", "-f", node_container, check=False)
             frames = [json.loads(line) for line in result.stdout.splitlines()]
-            if result.returncode != 0 or not frames or frames[-1]["result"]["StatusCode"] != 0:
-                message = f"{name} failed: {result.stdout}\n{result.stderr}"
+            if (
+                result.returncode != expected_status
+                or not frames
+                or frames[-1]["result"]["StatusCode"] != expected_status
+            ):
+                message = f"{case} failed: {result.stdout}\n{result.stderr}"
                 raise RuntimeError(message)
-            output = frames[-1]["result"]["Result"]
-            if name == "http-request":
-                assert output["status_code"] == HTTPStatus.OK  # noqa: S101
-                assert output["body"]["hello"] == "world"  # noqa: S101
-            elif name == "script":
-                assert output["stdout_json"] == {"answer": 42}  # noqa: S101
-            elif name == "agent":
-                assert output["invocation_id"] == ID  # noqa: S101
-            else:
-                assert output["artifacts"] == {"answer": 42}  # noqa: S101
-            print(f"PASS {name}: gRPC, arbitrary UID, read-only filesystem, SDK result", flush=True)
+            check_output(case, frames[-1]["result"]["Result"])
+            print(f"PASS {case}: gRPC, arbitrary UID, read-only filesystem, SDK result", flush=True)
     finally:
         command("rm", "-f", server, check=False)
         command("network", "rm", network, check=False)

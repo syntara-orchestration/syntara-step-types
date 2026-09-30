@@ -3,12 +3,20 @@
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from jsonschema import Draft7Validator
 from syntara_node_runtime.runtime import Invocation, execute
 from syntara_node_script import Node
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("name", ["http-request", "agent", "script", "aap-job", "aap-workflow"])
+def test_example_inputs_match_manifest(name):
+    manifest = yaml.safe_load((ROOT / name / "manifest.yaml").read_text())
+    example = json.loads((ROOT / name / "example.json").read_text())
+    Draft7Validator(manifest["spec"]["inputs"]).validate(example["inputs"])
 
 
 def test_five_manifests_validate():

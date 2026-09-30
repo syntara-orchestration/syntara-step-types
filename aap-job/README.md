@@ -1,7 +1,7 @@
 # aap-job SDK node
 
 This folder produces `syntara-node-aap-job`. Its entrypoint starts a gRPC server
-on port 50051. See [the runtime and deployment guide](../README.md) for the protobuf
+on port 50051. See [the runtime and deployment guide](../docs/runtime.md) for the protobuf
 contract, port-forwarding, mutual TLS, cancellation and workflow compatibility.
 
 From the repository root:
@@ -13,8 +13,8 @@ make node-image NODE=aap-job REGISTRY=quay.io/your-organization TAG=grpc-migrati
 With a running pod and its gRPC port forwarded to localhost:
 
 ```bash
-uv run --project backend --no-sync python -m syntara_node_protocol \
-  --address 127.0.0.1:50051 --file backend/nodes/aap-job/example.json
+uv run --frozen --all-packages python -m syntara_node_protocol \
+  --address 127.0.0.1:50051 --file aap-job/example.json
 ```
 
 Set real URLs and reference IDs in a protected copy of `example.json`; never commit
@@ -23,4 +23,4 @@ The pod accepts one invocation and exits after returning its result. Logs go to
 stderr. Agent dispatch returns an acknowledgement; its existing AO callback owns
 workflow completion.
 
-Build this folder's `Containerfile` with **backend/nodes as the build context**.
+Build this folder's `Containerfile` with **the repository root as the build context**.

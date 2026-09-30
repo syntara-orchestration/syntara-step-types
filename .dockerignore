@@ -4,3 +4,17 @@
 **/.mypy_cache
 **/tests
 .git
+.github
+konflux
+docs
+tools
+test-results
+build
+dist
+**/.ruff_cache
+**/.coverage*
+**/.env
+**/.env.*
+**/.secrets
+**/*.pem
+**/*.key
