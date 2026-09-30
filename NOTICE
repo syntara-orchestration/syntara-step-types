@@ -1,0 +1,119 @@
+Syntara
+Copyright 2024-2026 Red Hat, Inc.
+
+Source extracted from syntara-orchestration/syntara (backend/nodes).
+
+The following applicable notices are retained from the upstream source.
+Their version labels describe the upstream inventory; uv.lock records the
+versions installed by this workspace. This file is not an image SBOM.
+
+annotated-types 0.7.0
+  License: MIT License
+  URL:     https://github.com/annotated-types/annotated-types
+
+anyio 4.12.1
+  License: MIT
+  URL:     https://anyio.readthedocs.io/en/stable/versionhistory.html
+
+attrs 25.4.0
+  License: MIT
+  URL:     https://www.attrs.org/en/stable/changelog.html
+
+certifi 2026.2.25
+  License: Mozilla Public License 2.0 (MPL 2.0)
+  URL:     https://github.com/certifi/python-certifi
+
+coverage 7.13.4
+  License: Apache-2.0
+  URL:     https://github.com/coveragepy/coveragepy
+
+greenlet 3.3.2
+  License: MIT AND PSF-2.0
+  URL:     https://greenlet.readthedocs.io
+
+h11 0.16.0
+  License: MIT License
+  URL:     https://github.com/python-hyper/h11
+
+httpcore 1.0.9
+  License: BSD-3-Clause
+  URL:     https://www.encode.io/httpcore/
+
+idna 3.16
+  License: BSD-3-Clause
+  URL:     https://github.com/kjd/idna
+
+iniconfig 2.3.0
+  License: MIT
+  URL:     https://github.com/pytest-dev/iniconfig
+
+jsonschema-specifications 2025.9.1
+  License: MIT
+  URL:     https://github.com/python-jsonschema/jsonschema-specifications
+
+mypy_extensions 1.1.0
+  License: MIT
+  URL:     https://github.com/python/mypy_extensions
+
+packaging 26.0
+  License: Apache-2.0 OR BSD-2-Clause
+  URL:     https://github.com/pypa/packaging
+
+pathspec 1.0.4
+  License: Mozilla Public License 2.0 (MPL 2.0)
+  URL:     https://python-path-specification.readthedocs.io/en/latest/index.html
+
+pluggy 1.6.0
+  License: MIT License
+
+protobuf 6.33.5
+  License: 3-Clause BSD License
+  URL:     https://developers.google.com/protocol-buffers/
+
+pydantic 2.12.5
+  License: MIT
+  URL:     https://github.com/pydantic/pydantic
+
+pydantic_core 2.41.5
+  License: MIT
+  URL:     https://github.com/pydantic/pydantic-core
+
+Pygments 2.20.0
+  License: BSD-2-Clause
+  URL:     https://pygments.org
+
+PyYAML 6.0.3
+  License: MIT License
+  URL:     https://pyyaml.org/
+
+referencing 0.37.0
+  License: MIT
+  URL:     https://github.com/python-jsonschema/referencing
+
+rpds-py 0.30.0
+  License: MIT
+  URL:     https://github.com/crate-py/rpds
+
+SQLAlchemy 2.0.44
+  License: MIT
+  URL:     https://www.sqlalchemy.org
+
+sqlmodel 0.0.27
+  License: MIT License
+  URL:     https://github.com/fastapi/sqlmodel
+
+structlog 25.5.0
+  License: MIT OR Apache-2.0
+  URL:     https://github.com/hynek/structlog/blob/main/CHANGELOG.md
+
+types-protobuf 6.32.1.20260221
+  License: Apache-2.0
+  URL:     https://github.com/python/typeshed
+
+typing-inspection 0.4.2
+  License: MIT
+  URL:     https://github.com/pydantic/typing-inspection
+
+typing_extensions 4.15.0
+  License: PSF-2.0
+  URL:     https://github.com/python/typing_extensions
