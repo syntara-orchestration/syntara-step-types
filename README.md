@@ -32,6 +32,8 @@ See [the runtime guide](docs/runtime.md) for invocation, TLS and cancellation.
 | --- | --- |
 | HTTP request | `http-request` |
 | Script (Python and Bash) | `script` |
+| AAP job | `aap-job` |
+| AAP workflow | `aap-workflow` |
 
 Each folder has a Containerfile, SDK manifest, example inputs and tests. Build
 from the repository root so every image can access the shared workspace packages:

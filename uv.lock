@@ -4,6 +4,8 @@ requires-python = ">=3.12, <3.15"
 
 [manifest]
 members = [
+    "syntara-node-aap-job",
+    "syntara-node-aap-workflow",
     "syntara-node-http-request",
     "syntara-node-protocol",
     "syntara-node-runtime",
@@ -1266,6 +1268,28 @@ sdist = { url = "https://files.pythonhosted.org/packages/5e/89/b4a0bcfdf4f71a3de
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/18/489c97b834dfff9cf2fc2507cede4bcd4b11e67f84bc462acd1992496f86/structlog-26.1.0-py3-none-any.whl", hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e", size = 73764, upload-time = "2026-06-06T07:33:38.046Z" },
 ]
+
+[[package]]
+name = "syntara-node-aap-job"
+version = "0.1.0"
+source = { editable = "aap-job" }
+dependencies = [
+    { name = "syntara-node-runtime" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-node-runtime", editable = "_shared" }]
+
+[[package]]
+name = "syntara-node-aap-workflow"
+version = "0.1.0"
+source = { editable = "aap-workflow" }
+dependencies = [
+    { name = "syntara-node-runtime" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-node-runtime", editable = "_shared" }]
 
 [[package]]
 name = "syntara-node-http-request"
