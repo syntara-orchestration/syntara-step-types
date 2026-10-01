@@ -33,7 +33,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: make install
-      - run: make lint typecheck check-generated
+      - run: make lint typecheck check-generated check-konflux
 
   tests:
     runs-on: ubuntu-latest

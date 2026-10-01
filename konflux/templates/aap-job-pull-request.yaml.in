@@ -1,0 +1,61 @@
+# PREPARATION TEMPLATE: complete onboarding and offline builds before activation.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: 'true'
+    pipelinesascode.tekton.dev/max-keep-runs: '3'
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "devel"
+  labels:
+    appstudio.openshift.io/application: __APPLICATION__
+    appstudio.openshift.io/component: syntara-node-aap-job
+    pipelines.appstudio.openshift.io/type: build
+  name: syntara-node-aap-job-on-pull-request
+  namespace: __TENANT__
+spec:
+  params:
+  - name: git-url
+    value: '{{repo_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: output-image
+    value: __IMAGE_PREFIX__/syntara-node-aap-job:on-pr-{{revision}}
+  - name: image-expires-after
+    value: 5d
+  - name: dockerfile
+    value: aap-job/Containerfile
+  - name: path-context
+    value: .
+  - name: build-args
+    value:
+    - SOURCE_URL={{repo_url}}
+    - VCS_REF={{revision}}
+  - name: build-platforms
+    value:
+    - linux-c4xlarge/amd64
+    - linux-c4xlarge/arm64
+  - name: hermetic
+    value: 'true'
+  - name: prefetch-input
+    value: '[{"type":"pip","path":"."}]'
+  pipelineRef:
+    params:
+    - name: name
+      value: container
+    - name: bundle
+      value: __BUILD_BUNDLE__
+    - name: kind
+      value: pipeline
+    - name: secret
+      value: __BUNDLE_PULL_SECRET__
+    resolver: bundles
+  taskRunTemplate:
+    serviceAccountName: __BUILD_SERVICE_ACCOUNT__
+  workspaces:
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
