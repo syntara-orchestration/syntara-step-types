@@ -55,6 +55,13 @@ when publishing with `make push-node-images`; use immutable digests in deploymen
 `SOURCE_URL` defaults to this repository and `VCS_REF` to the current commit.
 Publishing is an explicit operation; GitHub CI builds and tests images locally.
 
+## Konflux preparation
+
+[Konflux onboarding](konflux/README.md) describes the inactive pipeline templates
+and remaining offline build/release work. `make sync-requirements` exports pinned
+external runtime dependencies; CI checks this export for drift. The export alone
+does not make the current Containerfiles hermetic.
+
 ## Provenance
 
 Extracted from `syntara-orchestration/syntara`, commit
