@@ -32,6 +32,7 @@ See [the runtime guide](docs/runtime.md) for invocation, TLS and cancellation.
 | --- | --- |
 | HTTP request | `http-request` |
 | Script (Python and Bash) | `script` |
+| Task agent | `agent` |
 | AAP job | `aap-job` |
 | AAP workflow | `aap-workflow` |
 

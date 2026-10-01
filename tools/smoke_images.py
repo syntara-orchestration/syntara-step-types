@@ -13,6 +13,7 @@ from typing import Any
 ENGINE = os.environ.get("CONTAINER_ENGINE", "podman")
 REGISTRY = os.environ.get("REGISTRY", "localhost")
 TAG = os.environ.get("TAG", "migration-test")
+ID = "d278f948-d329-438e-b0fd-2d993a7d9c0f"
 SERVER = """
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
@@ -28,7 +29,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self): self.reply({"status":"successful", "artifacts":{"answer":42}, "hello":"world"})
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length",0)))
-        self.reply({"id":42})
+        self.reply({"id":"d278f948-d329-438e-b0fd-2d993a7d9c0f"} if self.path.endswith("/invocations") else {"id":42})
 HTTPServer(("0.0.0.0",8080),Handler).serve_forever()
 """
 
@@ -51,6 +52,8 @@ def check_output(case: str, output: dict[str, Any]) -> None:
         assert output["stdout_json"] is None  # noqa: S101 - Bash preserves raw stdout
     elif case == "script":
         assert output["stdout_json"] == {"answer": 42}  # noqa: S101
+    elif case == "agent":
+        assert output["invocation_id"] == ID  # noqa: S101
     else:
         assert output["artifacts"] == {"answer": 42}  # noqa: S101
 
@@ -101,6 +104,15 @@ def main() -> None:
             "script": {"inputs": {"language": "python", "code": "print('{\"answer\":42}')"}},
             "script-bash": {"inputs": {"language": "bash", "code": "printf '{\"answer\":42}'"}},
             "script-failure": {"inputs": {"language": "bash", "code": "printf partial; exit 7"}},
+            "agent": {
+                "inputs": {"prompt": "hello"},
+                "workflow_context": {
+                    "project_id": ID,
+                    "created_by_user_id": ID,
+                    "agent_base_url": base,
+                    "agent_tls_enabled": False,
+                },
+            },
             "aap-job": {"inputs": {"job_template_id": 1}},
             "aap-workflow": {"inputs": {"workflow_job_template_id": 1}},
         }
