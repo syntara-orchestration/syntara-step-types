@@ -25,7 +25,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
-    def do_GET(self): self.reply({"hello":"world"})
+    def do_GET(self): self.reply({"status":"successful", "artifacts":{"answer":42}, "hello":"world"})
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length",0)))
+        self.reply({"id":42})
 HTTPServer(("0.0.0.0",8080),Handler).serve_forever()
 """
 
@@ -48,6 +51,8 @@ def check_output(case: str, output: dict[str, Any]) -> None:
         assert output["stdout_json"] is None  # noqa: S101 - Bash preserves raw stdout
     elif case == "script":
         assert output["stdout_json"] == {"answer": 42}  # noqa: S101
+    else:
+        assert output["artifacts"] == {"answer": 42}  # noqa: S101
 
 
 def main() -> None:
@@ -96,10 +101,17 @@ def main() -> None:
             "script": {"inputs": {"language": "python", "code": "print('{\"answer\":42}')"}},
             "script-bash": {"inputs": {"language": "bash", "code": "printf '{\"answer\":42}'"}},
             "script-failure": {"inputs": {"language": "bash", "code": "printf partial; exit 7"}},
+            "aap-job": {"inputs": {"job_template_id": 1}},
+            "aap-workflow": {"inputs": {"workflow_job_template_id": 1}},
         }
         for case, invocation in cases.items():
             name = "script" if case.startswith("script-") else case
             expected_status = 1 if case == "script-failure" else 0
+            if name.startswith("aap-"):
+                invocation.update(
+                    credentials={"resolved": {"extra_vars": {"aap_oauth_token": "test-token"}}},
+                    workflow_context={"integration": {"base_url": base, "verify_ssl": True}},
+                )
             node_container = f"syntara-node-{name}-{suffix}"
             command(
                 "run",

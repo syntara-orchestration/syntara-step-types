@@ -1,4 +1,4 @@
-NODES := http-request script
+NODES := http-request script aap-job aap-workflow
 CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= migration-test
