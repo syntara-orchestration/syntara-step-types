@@ -6,6 +6,7 @@ requires-python = ">=3.12, <3.15"
 members = [
     "syntara-node-aap-job",
     "syntara-node-aap-workflow",
+    "syntara-node-agent",
     "syntara-node-http-request",
     "syntara-node-protocol",
     "syntara-node-runtime",
@@ -1284,6 +1285,17 @@ requires-dist = [{ name = "syntara-node-runtime", editable = "_shared" }]
 name = "syntara-node-aap-workflow"
 version = "0.1.0"
 source = { editable = "aap-workflow" }
+dependencies = [
+    { name = "syntara-node-runtime" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-node-runtime", editable = "_shared" }]
+
+[[package]]
+name = "syntara-node-agent"
+version = "0.1.0"
+source = { editable = "agent" }
 dependencies = [
     { name = "syntara-node-runtime" },
 ]
