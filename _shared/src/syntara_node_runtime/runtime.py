@@ -136,7 +136,7 @@ class RuntimeContext(ExecutionContext):
         self.secrets = secret_values(resolved.get("_secret_values", []))
         self.secrets |= secret_values({k: v for k, v in resolved.get("extra_vars", {}).items() if k != "auth_type"})
         self.secrets |= secret_values(resolved.get("env", {})) | secret_values(resolved.get("file", {}))
-        self.secrets |= secret_values(invocation.settings.model_dump())
+        self.secrets |= secret_values([invocation.settings.aap_token, invocation.settings.aap_password])
         # ExecutionContext exposes the SDK's stdlib logger directly to node code.
         # Its named logger can be reused, so replace any prior invocation filter.
         for installed_filter in tuple(self.logger.filters):

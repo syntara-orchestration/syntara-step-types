@@ -175,18 +175,36 @@ def test_progress_and_results_are_redacted(endpoint):
     assert result["result"]["Result"]["value"] == {"token": "[REDACTED]"}
 
 
-def test_settings_secrets_are_redacted_from_progress_and_results(endpoint):
+def test_only_secret_settings_are_redacted_from_progress_and_results(endpoint):
     channel, _service = endpoint
     setting_a = "settings-value-a-123"
     setting_b = "settings-value-b-456"
-    data = request(value={"message": f"setting is {setting_b}"}, progress=f"setting is {setting_a}")
-    data["settings"] = {"aap_token": setting_a, "aap_password": setting_b}
+    username = "automation-user"
+    allowed_host = "controller.example.test"
+    data = request(
+        value={
+            "message": f"setting is {setting_b}",
+            "aap_username": username,
+            "host": allowed_host,
+        },
+        progress=f"setting is {setting_a}",
+    )
+    data["settings"] = {
+        "aap_token": setting_a,
+        "aap_password": setting_b,
+        "aap_username": username,
+        "workflow_http_request_allowed_hosts": [allowed_host],
+    }
     frames = []
 
     result = execute(channel, data, progress=frames.append)
 
     assert frames[0]["data"]["message"] == "setting is [REDACTED]"
-    assert result["result"]["Result"]["value"]["message"] == "setting is [REDACTED]"
+    assert result["result"]["Result"]["value"] == {
+        "message": "setting is [REDACTED]",
+        "aap_username": username,
+        "host": allowed_host,
+    }
 
 
 def test_sdk_logger_redacts_messages_and_exception_tracebacks(endpoint, caplog):
