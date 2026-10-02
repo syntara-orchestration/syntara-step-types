@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+import logging
 import signal
 import threading
 from types import SimpleNamespace
@@ -20,11 +21,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
 MAX_FRAME_BYTES = 2_097_152
+MAX_INVOCATION_TIMEOUT_SECONDS = 86_400
 constants = SimpleNamespace(ENGINE_TIMEOUT_SECONDS_KEY="_engine_timeout_seconds")
 
 
 class NodeSettings(SQLModel):
-    """Non-secret limits supplied by the trusted dispatcher."""
+    """Trusted runtime settings supplied by the dispatcher."""
 
     workflow_http_request_allowed_hosts: list[str] = Field(default_factory=list)
     aap_poll_interval_seconds: float = Field(default=5, gt=0)
@@ -47,7 +49,12 @@ class Invocation(SQLModel):
     credentials: dict[str, Any] = Field(default_factory=dict)
     workflow_context: dict[str, Any] = Field(default_factory=dict)
     settings: NodeSettings = Field(default_factory=NodeSettings)
-    timeout_seconds: int = Field(default=300, ge=1)
+    timeout_seconds: int = Field(
+        default=300,
+        ge=1,
+        le=MAX_INVOCATION_TIMEOUT_SECONDS,
+        description="Invocation timeout in seconds; the maximum is 24 hours.",
+    )
     max_output_bytes: int = Field(default=1048576, ge=1, le=MAX_FRAME_BYTES)
 
 
@@ -66,6 +73,9 @@ class NodeFailure(Exception):  # noqa: N818 - matches the portable failure contr
 
 def secret_values(value: Any) -> set[str]:
     """Collect credential values for replacement, including short secrets."""
+    if isinstance(value, SecretStr):
+        secret = value.get_secret_value()
+        return {secret} if secret else set()
     if isinstance(value, dict):
         return set().union(*(secret_values(v) for v in value.values())) if value else set()
     if isinstance(value, list):
@@ -90,6 +100,28 @@ def scrub(value: Any, secrets: set[str]) -> Any:
     return value
 
 
+class _SecretRedactingLogFilter(logging.Filter):
+    """Sanitize SDK standard-library log records before they reach handlers."""
+
+    def __init__(self, secrets: set[str]) -> None:
+        """Retain secrets that must not appear in node log output."""
+        super().__init__()
+        self.secrets = secrets
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Render and redact messages, and discard potentially sensitive tracebacks."""
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - malformed logging arguments must not leak
+            message = "Node log message could not be rendered"
+        record.msg = scrub(message, self.secrets)
+        record.args = ()
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
+        return True
+
+
 class RuntimeContext(ExecutionContext):
     """SDK context with progress and cooperative cancellation."""
 
@@ -104,6 +136,13 @@ class RuntimeContext(ExecutionContext):
         self.secrets = secret_values(resolved.get("_secret_values", []))
         self.secrets |= secret_values({k: v for k, v in resolved.get("extra_vars", {}).items() if k != "auth_type"})
         self.secrets |= secret_values(resolved.get("env", {})) | secret_values(resolved.get("file", {}))
+        self.secrets |= secret_values(invocation.settings.model_dump())
+        # ExecutionContext exposes the SDK's stdlib logger directly to node code.
+        # Its named logger can be reused, so replace any prior invocation filter.
+        for installed_filter in tuple(self.logger.filters):
+            if isinstance(installed_filter, _SecretRedactingLogFilter):
+                self.logger.removeFilter(installed_filter)
+        self.logger.addFilter(_SecretRedactingLogFilter(self.secrets))
         self.partial: dict[str, Any] = {}
 
     def emit(self, event: str, data: dict[str, Any]) -> None:

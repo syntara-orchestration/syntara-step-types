@@ -19,9 +19,12 @@ stderr; stdin/stdout are not the server's control transport.
 Each server instance accepts one invocation. A second Execute is rejected, even
 after ambiguous delivery. Callers must not automatically resubmit an uncertain
 request: external work may already have started. Progress and returned values
-are redacted using the supplied resolved secrets. Cancellation, RPC deadlines,
-disconnects and SIGTERM request cooperative cleanup by the step implementation.
-The execution infrastructure owns container creation, resource limits and removal.
+are redacted using the supplied resolved secrets and secret-valued runtime
+settings. SDK logger messages receive the same redaction, and traceback details
+are suppressed. Invocation timeouts are capped at 24 hours. Cancellation, RPC
+deadlines, disconnects and SIGTERM request cooperative cleanup by the step
+implementation. The execution infrastructure owns container creation, resource
+limits and removal.
 
 ## Connections and TLS
 

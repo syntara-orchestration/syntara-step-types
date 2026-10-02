@@ -10,13 +10,13 @@ from typing import Any
 
 import grpc
 import pytest
-from pydantic import Field
+from pydantic import Field, ValidationError
 from sqlmodel import SQLModel
 from syntara_node_protocol import node_pb2 as pb
 from syntara_node_protocol import node_pb2_grpc as rpc
 from syntara_node_protocol.client import NodeRpcError, invoke
 from syntara_node_protocol.codec import CHANNEL_OPTIONS, MAX_MESSAGE_BYTES, decode_event, encode_request
-from syntara_node_runtime.runtime import NodeFailure
+from syntara_node_runtime.runtime import MAX_INVOCATION_TIMEOUT_SECONDS, Invocation, NodeFailure
 from syntara_node_runtime.server import create_server
 
 
@@ -27,6 +27,7 @@ class EchoInput(SQLModel):
     wait: bool = False
     fail: bool = False
     progress: str | None = None
+    log_secret: str | None = None
 
 
 class EchoOutput(SQLModel):
@@ -42,6 +43,15 @@ class EchoNode:
     output_model = EchoOutput
 
     def run(self, inputs, context) -> dict:
+        if inputs.log_secret:
+
+            def raise_logged_value() -> None:
+                raise ValueError(inputs.log_secret)
+
+            try:
+                raise_logged_value()
+            except ValueError:
+                context.logger.exception("SDK logger saw %s", inputs.log_secret)
         if inputs.progress:
             context.emit("heartbeat", {"message": inputs.progress})
         if inputs.wait and context.cancelled.wait(5):
@@ -163,6 +173,41 @@ def test_progress_and_results_are_redacted(endpoint):
     result = execute(channel, data, progress=frames.append)
     assert frames[0]["data"]["message"] == "contains [REDACTED]"
     assert result["result"]["Result"]["value"] == {"token": "[REDACTED]"}
+
+
+def test_settings_secrets_are_redacted_from_progress_and_results(endpoint):
+    channel, _service = endpoint
+    setting_a = "settings-value-a-123"
+    setting_b = "settings-value-b-456"
+    data = request(value={"message": f"setting is {setting_b}"}, progress=f"setting is {setting_a}")
+    data["settings"] = {"aap_token": setting_a, "aap_password": setting_b}
+    frames = []
+
+    result = execute(channel, data, progress=frames.append)
+
+    assert frames[0]["data"]["message"] == "setting is [REDACTED]"
+    assert result["result"]["Result"]["value"]["message"] == "setting is [REDACTED]"
+
+
+def test_sdk_logger_redacts_messages_and_exception_tracebacks(endpoint, caplog):
+    channel, _service = endpoint
+    logged_value = "settings-value-in-log"
+    data = request(log_secret=logged_value)
+    data["settings"] = {"aap_token": logged_value}
+
+    result = execute(channel, data)
+    logged = caplog.text
+
+    assert result["result"]["StatusCode"] == 0
+    assert logged_value not in logged
+    assert "[REDACTED]" in logged
+    assert "Traceback" not in logged
+
+
+def test_invocation_timeout_has_a_24_hour_maximum():
+    assert Invocation(timeout_seconds=MAX_INVOCATION_TIMEOUT_SECONDS).timeout_seconds == MAX_INVOCATION_TIMEOUT_SECONDS
+    with pytest.raises(ValidationError):
+        Invocation(timeout_seconds=MAX_INVOCATION_TIMEOUT_SECONDS + 1)
 
 
 def test_input_validation_returns_safe_failure(endpoint):
