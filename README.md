@@ -26,6 +26,33 @@ the runtime and shared types; `_protocol` contains the protobuf contract,
 generated code and CLI. Regenerate bindings with `make proto` after protocol edits.
 See [the runtime guide](docs/runtime.md) for invocation, TLS and cancellation.
 
+## Available steps and container builds
+
+| Step | Folder / image suffix |
+| --- | --- |
+| HTTP request | `http-request` |
+| Script (Python and Bash) | `script` |
+
+Each folder has a Containerfile, SDK manifest, example inputs and tests. Build
+from the repository root so every image can access the shared workspace packages:
+
+```bash
+make node-images CONTAINER_ENGINE=docker TAG=local-test
+make smoke-images CONTAINER_ENGINE=docker TAG=local-test
+make node-image NODE=script CONTAINER_ENGINE=docker TAG=local-test
+```
+
+Podman is also supported and is the default engine. Smoke tests require all images
+listed above, including the script image used as the fixture and protocol client.
+They use disposable mock services and check real gRPC calls, arbitrary UIDs,
+read-only filesystems, Python/Bash output and script failures. They clean up their
+containers and network. CI builds and smoke-tests these same available images.
+
+Images target the container engine's architecture. Configure `REGISTRY` and `TAG`
+when publishing with `make push-node-images`; use immutable digests in deployments.
+`SOURCE_URL` defaults to this repository and `VCS_REF` to the current commit.
+Publishing is an explicit operation; GitHub CI builds and tests images locally.
+
 ## Provenance
 
 Extracted from `syntara-orchestration/syntara`, commit
