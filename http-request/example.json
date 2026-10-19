@@ -1,0 +1,8 @@
+{
+  "url": "https://httpbin.org/get",
+  "method": "GET",
+  "headers": {},
+  "query_params": {},
+  "timeout_seconds": 30,
+  "follow_redirects": false
+}

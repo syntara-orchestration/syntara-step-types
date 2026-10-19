@@ -1,0 +1,113 @@
+name: Steps CI
+
+on:
+  pull_request:
+  push:
+    branches: [devel]
+  merge_group:
+    branches: [devel]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steps-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: '0.5.x'
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: syntara-orchestration/syntara-plugin-sdk
+          path: ../syntara-plugin-sdk
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: make install
+      - run: make lint typecheck
+
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: syntara-orchestration/syntara-plugin-sdk
+          path: ../syntara-plugin-sdk
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: make install
+        env:
+          UV_PYTHON: ${{ matrix.python }}
+      - run: make test-ci
+        env:
+          UV_PYTHON: ${{ matrix.python }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-python-${{ matrix.python }}
+          path: test-results/
+          retention-days: 7
+
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CONTAINER_ENGINE: docker
+      TAG: ci-${{ github.sha }}
+      SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+      VCS_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: syntara-orchestration/syntara-plugin-sdk
+          path: ../syntara-plugin-sdk
+          persist-credentials: false
+      - run: make node-images
+
+  steps-ci:
+    name: steps-ci
+    if: always()
+    needs: [quality, tests, images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every gate to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+          IMAGE_RESULT: ${{ needs.images.result }}
+        run: |
+          test "$QUALITY_RESULT" = success
+          test "$TEST_RESULT" = success
+          test "$IMAGE_RESULT" = success

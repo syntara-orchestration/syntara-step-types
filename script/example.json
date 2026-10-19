@@ -1,0 +1,5 @@
+{
+  "language": "python",
+  "code": "import json\nprint(json.dumps({'result': 42}))",
+  "environment": {}
+}
