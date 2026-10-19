@@ -45,14 +45,15 @@ node-images:
 
 node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
-	mkdir -p .sdk-runtime
+	mkdir -p .sdk-contracts .sdk-runtime
+	cp -r ../syntara-plugin-sdk/sdks/python/packages/contracts/. .sdk-contracts/
 	cp -r ../syntara-plugin-sdk/sdks/python/packages/runtime/. .sdk-runtime/
 	$(CONTAINER_ENGINE) build \
 		--build-arg SOURCE_URL="$(SOURCE_URL)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		-f $(NODE)/Containerfile \
 		-t $(REGISTRY)/syntara-node-$(NODE):$(TAG) . ; \
-	EXIT=$$? ; rm -rf .sdk-runtime ; exit $$EXIT
+	EXIT=$$? ; rm -rf .sdk-contracts .sdk-runtime ; exit $$EXIT
 
 .PHONY: push-node-images push-node-image
 push-node-images:

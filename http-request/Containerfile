@@ -3,11 +3,14 @@ WORKDIR /app
 
 FROM base AS builder
 RUN pip install --no-cache-dir uv
-# .sdk-runtime is staged by `make node-image` from ../syntara-plugin-sdk
+# .sdk-contracts and .sdk-runtime are staged by `make node-image` from ../syntara-plugin-sdk
+COPY .sdk-contracts /deps/contracts
 COPY .sdk-runtime /deps/runtime
 COPY http-request/pyproject.toml /app/pyproject.toml
 COPY http-request/src /app/src
-RUN uv pip install --system /deps/runtime "httpx>=0.28"
+RUN uv pip install --system /deps/contracts
+RUN uv pip install --system --no-deps /deps/runtime
+RUN uv pip install --system "httpx>=0.28"
 RUN uv pip install --system --no-deps .
 
 FROM base
