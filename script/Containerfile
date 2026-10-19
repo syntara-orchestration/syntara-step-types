@@ -1,0 +1,15 @@
+FROM python:3.12-slim AS base
+WORKDIR /app
+
+FROM base AS builder
+RUN pip install uv
+COPY script/pyproject.toml /app/pyproject.toml
+COPY script/src /app/src
+RUN uv pip install --system .
+
+FROM base
+COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/src /app/src
+EXPOSE 50051
+ENTRYPOINT ["python", "-m", "syntara_node_script"]

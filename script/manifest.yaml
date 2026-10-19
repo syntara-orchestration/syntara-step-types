@@ -1,0 +1,49 @@
+apiVersion: syntara.io/v1alpha1
+kind: Task
+metadata:
+  name: script
+  displayName: Script
+  version: 0.1.0
+  description: Runs Python or Bash code in an isolated subprocess container.
+spec:
+  stepIdentity: syntara.step.script:0.1.0
+  execution:
+    type: container
+    image: localhost/syntara-node-script:0.1.0
+    entrypoint: python -m syntara_node_script
+  inputs:
+    type: object
+    required:
+      - language
+      - code
+    additionalProperties: false
+    properties:
+      language:
+        type: string
+        enum: [python, bash]
+        description: Script language to execute.
+      code:
+        type: string
+        minLength: 1
+        description: Script source code to execute.
+      environment:
+        type: object
+        additionalProperties:
+          type: string
+        description: Environment variables passed to the script process.
+  outputs:
+    type: object
+    required: [return_code, stdout, stderr]
+    additionalProperties: false
+    properties:
+      return_code:
+        type: integer
+        description: Process exit code.
+      stdout:
+        type: string
+        description: Standard output captured from the script.
+      stderr:
+        type: string
+        description: Standard error captured from the script.
+      stdout_json:
+        description: Parsed JSON from stdout (Python scripts only).
