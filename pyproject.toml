@@ -8,19 +8,21 @@ dependencies = []
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    "respx>=0.22",
+    "httpx>=0.28",
     "ruff==0.14.3",
     "mypy>=1.8",
 ]
 
 [tool.uv.workspace]
-members = ["script"]
+members = ["script", "http-request"]
 
 [tool.uv.sources]
 syntara-plugin-runtime = { path = "../syntara-plugin-sdk/sdks/python/packages/runtime", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["script/tests"]
+testpaths = ["script/tests", "http-request/tests"]
 addopts = "--import-mode=importlib"
 
 [tool.ruff]
