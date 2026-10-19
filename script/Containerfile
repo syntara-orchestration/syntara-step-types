@@ -2,10 +2,13 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-RUN pip install uv
+RUN pip install --no-cache-dir uv
+# .sdk-runtime is staged by `make node-image` from ../syntara-plugin-sdk
+COPY .sdk-runtime /deps/runtime
 COPY script/pyproject.toml /app/pyproject.toml
 COPY script/src /app/src
-RUN uv pip install --system .
+RUN uv pip install --system /deps/runtime
+RUN uv pip install --system --no-deps .
 
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
