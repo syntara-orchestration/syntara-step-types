@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 import respx
-from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
-
 from syntara_node_http_request import HttpInput, HttpMethod, HttpRequestStep
+from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
 
 
 @pytest.fixture
@@ -22,9 +21,7 @@ def context() -> ExecutionContext:
 
 @respx.mock
 def test_successful_get(step: HttpRequestStep, context: ExecutionContext) -> None:
-    respx.get("https://example.com/api").mock(
-        return_value=httpx.Response(200, json={"ok": True})
-    )
+    respx.get("https://example.com/api").mock(return_value=httpx.Response(200, json={"ok": True}))
     output = step.run(HttpInput(url="https://example.com/api"), context)
     assert output.status_code == 200
     assert output.body == {"ok": True}
@@ -58,9 +55,7 @@ def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext) -
 
 @respx.mock
 def test_text_response_body(step: HttpRequestStep, context: ExecutionContext) -> None:
-    respx.get("https://example.com/text").mock(
-        return_value=httpx.Response(200, text="hello world")
-    )
+    respx.get("https://example.com/text").mock(return_value=httpx.Response(200, text="hello world"))
     output = step.run(HttpInput(url="https://example.com/text"), context)
     assert output.body == "hello world"
 

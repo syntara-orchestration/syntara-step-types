@@ -27,10 +27,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          path: step-types
       - uses: actions/checkout@v4
         with:
           repository: syntara-orchestration/syntara-plugin-sdk
-          path: ../syntara-plugin-sdk
+          path: syntara-plugin-sdk
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -39,7 +40,9 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: make install
+        working-directory: step-types
       - run: make lint typecheck
+        working-directory: step-types
 
   tests:
     runs-on: ubuntu-latest
@@ -52,10 +55,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          path: step-types
       - uses: actions/checkout@v4
         with:
           repository: syntara-orchestration/syntara-plugin-sdk
-          path: ../syntara-plugin-sdk
+          path: syntara-plugin-sdk
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -64,16 +68,18 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: make install
+        working-directory: step-types
         env:
           UV_PYTHON: ${{ matrix.python }}
       - run: make test-ci
+        working-directory: step-types
         env:
           UV_PYTHON: ${{ matrix.python }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-python-${{ matrix.python }}
-          path: test-results/
+          path: step-types/test-results/
           retention-days: 7
 
   images:
@@ -88,12 +94,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          path: step-types
       - uses: actions/checkout@v4
         with:
           repository: syntara-orchestration/syntara-plugin-sdk
-          path: ../syntara-plugin-sdk
+          path: syntara-plugin-sdk
           persist-credentials: false
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
       - run: make node-images
+        working-directory: step-types
 
   steps-ci:
     name: steps-ci

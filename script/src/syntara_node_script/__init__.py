@@ -1,4 +1,5 @@
 """Script step: runs Python or Bash code in an isolated subprocess."""
+
 from __future__ import annotations
 
 import asyncio
@@ -26,7 +27,9 @@ class ScriptOutput(BaseModel):
 class ScriptStep(TaskStep[ScriptInput, ScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> ScriptOutput:
         try:
-            result = asyncio.run(run_script_async(inputs.language, inputs.code, dict(inputs.environment)))
+            result = asyncio.run(
+                run_script_async(inputs.language, inputs.code, dict(inputs.environment))
+            )
             return ScriptOutput(**result)
         except ScriptExecutionError as exc:
             raise ContainerInvocationError(

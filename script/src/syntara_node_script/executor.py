@@ -1,4 +1,5 @@
 """Async subprocess execution for the script step."""
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,11 @@ SAFE_ENV_ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
-DEFAULT_MAX_OUTPUT_BYTES = 1_048_576  # 1 MB
+# SDK permits 1 MiB for entire serialized result. Allow ~400KB per stream to account for:
+# - JSON encoding overhead (quotes, escaping)
+# - Result envelope (field names, return_code, etc.)
+# - stdout_json field which may duplicate stdout content
+DEFAULT_MAX_OUTPUT_BYTES = 409_600  # 400 KB per stream
 MAX_ENV_VAR_LENGTH = 32768
 SCRIPT_CLEANUP_TERMINATE_TIMEOUT = 1.0
 SCRIPT_CLEANUP_KILL_TIMEOUT = 0.5
@@ -52,19 +57,34 @@ class ScriptTimeoutError(Exception):
     """Raised when script execution exceeds the allowed timeout."""
 
 
-async def _cleanup_process(process: asyncio.subprocess.Process) -> None:
+async def _cleanup_process(process: asyncio.subprocess.Process, process_group_id: int) -> None:
+    """Clean up process and all descendants in its process group."""
+    # First, try to terminate the direct process if still running
     if process.returncode is None:
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            os.killpg(process_group_id, signal.SIGTERM)
             await asyncio.wait_for(process.wait(), timeout=SCRIPT_CLEANUP_TERMINATE_TIMEOUT)
         except TimeoutError:
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                os.killpg(process_group_id, signal.SIGKILL)
                 await asyncio.wait_for(process.wait(), timeout=SCRIPT_CLEANUP_KILL_TIMEOUT)
             except (TimeoutError, ProcessLookupError):
                 pass
         except ProcessLookupError:
             pass
+
+    # Always attempt to clean up any remaining process group members
+    # This catches background processes that survive after the leader exits
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+        await asyncio.sleep(SCRIPT_CLEANUP_TERMINATE_TIMEOUT)
+    except ProcessLookupError:
+        pass  # Process group already gone
+
+    try:
+        os.killpg(process_group_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # Process group already gone
 
     if process.stdin and not process.stdin.is_closing():
         process.stdin.close()
@@ -127,10 +147,20 @@ def _get_cgroup_memory_limit() -> int | None:
     return None
 
 
-def _prepend_memory_limit(code: str, language: str, max_bytes: int) -> str:
-    if language == "python":
-        return f"import resource as __r; __r.setrlimit(__r.RLIMIT_AS, ({max_bytes}, {max_bytes}))\n{code}"
-    return f"ulimit -v $(({max_bytes} / 1024))\n{code}"
+def _create_python_launcher_with_limit(user_code: str, max_bytes: int) -> str:
+    """Create a Python launcher that applies resource limits before executing user code.
+
+    This preserves the user code's module semantics (e.g., __future__ imports).
+    """
+    return f"""import resource
+import sys
+
+# Apply memory limit
+resource.setrlimit(resource.RLIMIT_AS, ({max_bytes}, {max_bytes}))
+
+# Execute user code
+exec(compile({user_code!r}, '<script>', 'exec'))
+"""
 
 
 def _sanitize_env_value(value: object) -> str:
@@ -138,7 +168,9 @@ def _sanitize_env_value(value: object) -> str:
     if "\0" in str_value:
         raise ValueError("Environment variable values cannot contain null bytes")
     if len(str_value) > MAX_ENV_VAR_LENGTH:
-        raise ValueError(f"Environment variable value exceeds maximum length ({MAX_ENV_VAR_LENGTH} bytes)")
+        raise ValueError(
+            f"Environment variable value exceeds maximum length ({MAX_ENV_VAR_LENGTH} bytes)"
+        )
     return str_value
 
 
@@ -158,6 +190,7 @@ async def _execute_script_common(
 ) -> dict[str, Any]:
     env = _prepare_script_env(environment)
     process = None
+    process_group_id = None
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -167,6 +200,7 @@ async def _execute_script_common(
             env=env,
             start_new_session=True,
         )
+        process_group_id = process.pid
 
         stdout_bytes, stderr_bytes, stdout_truncated, stderr_truncated = await asyncio.wait_for(
             _communicate_limited(process, max_output_bytes),
@@ -191,7 +225,9 @@ async def _execute_script_common(
             error_msg = f"Script failed with exit code {returncode}"
             if stderr:
                 error_msg += f": {stderr.strip()}"
-            raise ScriptExecutionError(message=error_msg, exit_code=returncode, stdout=stdout, stderr=stderr)
+            raise ScriptExecutionError(
+                message=error_msg, exit_code=returncode, stdout=stdout, stderr=stderr
+            )
 
         return {"stdout": stdout, "stderr": stderr, "return_code": returncode}
 
@@ -205,11 +241,14 @@ async def _execute_script_common(
         ) from exc
     except Exception as exc:
         raise ScriptExecutionError(
-            message=f"Unexpected error executing script: {exc}", exit_code=-1, stdout="", stderr=str(exc)
+            message=f"Unexpected error executing script: {exc}",
+            exit_code=-1,
+            stdout="",
+            stderr=str(exc),
         ) from exc
     finally:
-        if process:
-            await _cleanup_process(process)
+        if process and process_group_id:
+            await _cleanup_process(process, process_group_id)
 
 
 async def run_script_async(
@@ -223,10 +262,19 @@ async def run_script_async(
     Raises ScriptExecutionError or ScriptTimeoutError on failure.
     """
     cgroup_limit = _get_cgroup_memory_limit()
-    if cgroup_limit:
-        code = _prepend_memory_limit(code, language, int(cgroup_limit * 0.75))
 
-    command = ["bash", "-c", code] if language == "bash" else [sys.executable, "-c", code]
+    if language == "bash":
+        # For bash, prepend ulimit command
+        if cgroup_limit:
+            ulimit_kb = int(cgroup_limit * 0.75 / 1024)
+            code = f"ulimit -v {ulimit_kb}\n{code}"
+        command = ["bash", "-c", code]
+    else:
+        # For Python, use launcher approach to preserve module semantics
+        if cgroup_limit:
+            code = _create_python_launcher_with_limit(code, int(cgroup_limit * 0.75))
+        command = [sys.executable, "-c", code]
+
     result = await _execute_script_common(command, environment)
 
     stdout_json = None

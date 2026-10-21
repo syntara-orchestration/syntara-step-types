@@ -1,8 +1,8 @@
 """Tests for ScriptStep using the syntara-plugin-runtime SDK."""
-import pytest
-from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
 
+import pytest
 from syntara_node_script import ScriptInput, ScriptStep
+from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
 
 
 @pytest.fixture

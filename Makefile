@@ -45,15 +45,22 @@ node-images:
 
 node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
-	mkdir -p .sdk-contracts .sdk-runtime
-	cp -r ../syntara-plugin-sdk/sdks/python/packages/contracts/. .sdk-contracts/
-	cp -r ../syntara-plugin-sdk/sdks/python/packages/runtime/. .sdk-runtime/
+	mkdir -p .sdk-dist
+	@if [ -d "../syntara-plugin-sdk" ]; then \
+		SDK_PATH="../syntara-plugin-sdk"; \
+	else \
+		echo "Error: syntara-plugin-sdk not found at ../syntara-plugin-sdk"; \
+		exit 1; \
+	fi; \
+	cd $$SDK_PATH/sdks/python/packages/contracts && $(UV) build --out-dir $(CURDIR)/.sdk-dist && \
+	cd $(CURDIR) && \
+	cd $$SDK_PATH/sdks/python/packages/runtime && $(UV) build --out-dir $(CURDIR)/.sdk-dist
 	$(CONTAINER_ENGINE) build \
 		--build-arg SOURCE_URL="$(SOURCE_URL)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		-f $(NODE)/Containerfile \
 		-t $(REGISTRY)/syntara-node-$(NODE):$(TAG) . ; \
-	EXIT=$$? ; rm -rf .sdk-contracts .sdk-runtime ; exit $$EXIT
+	EXIT=$$? ; rm -rf .sdk-dist ; exit $$EXIT
 
 .PHONY: push-node-images push-node-image
 push-node-images:
