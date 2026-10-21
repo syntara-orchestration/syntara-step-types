@@ -6,9 +6,11 @@ RUN pip install --no-cache-dir uv
 # .sdk-dist contains built wheels from `make node-image`
 COPY .sdk-dist/*.whl /deps/
 COPY script/pyproject.toml /app/pyproject.toml
+COPY script/manifest.yaml /app/manifest.yaml
 COPY script/src /app/src
 RUN uv pip install --system /deps/syntara_plugin_contracts-*.whl
 RUN uv pip install --system /deps/syntara_plugin_runtime-*.whl
+RUN uv pip install --system "pyyaml>=6.0"
 RUN uv pip install --system --no-deps .
 
 FROM base

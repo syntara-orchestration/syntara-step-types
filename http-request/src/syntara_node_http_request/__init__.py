@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from syntara_plugin.runtime import ExecutionContext, TaskStep
+from syntara_plugin.runtime import ActionStep, ExecutionContext
 
 from ._models import HttpInput, HttpMethod, HttpOutput
 from .executor import execute_http_request
@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-class HttpRequestStep(TaskStep[HttpInput, HttpOutput]):
+class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
     """Make an outbound HTTP request and return the response as typed output."""
 
     def run(self, inputs: HttpInput, context: ExecutionContext) -> HttpOutput:

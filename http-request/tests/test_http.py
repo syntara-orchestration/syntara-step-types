@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import socket
+from unittest.mock import patch
+
 import httpx
 import pytest
 import respx
@@ -19,8 +22,32 @@ def context() -> ExecutionContext:
     return ExecutionContext(invocation_id="test-invocation-1")
 
 
+@pytest.fixture
+def mock_dns():
+    """Mock DNS resolution to return safe public IPs for all hostnames.
+
+    This prevents tests from making real DNS queries and ensures deterministic results.
+    """
+
+    def _getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        # Return a safe public IP for all test hostnames
+        # Format: (family, type, proto, canonname, sockaddr)
+        return [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                6,
+                "",
+                ("93.184.216.34", port or 80),
+            ),  # example.com IP
+        ]
+
+    with patch("socket.getaddrinfo", side_effect=_getaddrinfo):
+        yield
+
+
 @respx.mock
-def test_successful_get(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_successful_get(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/api").mock(return_value=httpx.Response(200, json={"ok": True}))
     output = step.run(HttpInput(url="https://example.com/api"), context)
     assert output.status_code == 200
@@ -29,7 +56,7 @@ def test_successful_get(step: HttpRequestStep, context: ExecutionContext) -> Non
 
 
 @respx.mock
-def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.post("https://example.com/api").mock(
         return_value=httpx.Response(201, json={"created": True})
     )
@@ -42,7 +69,7 @@ def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext) -
 
 
 @respx.mock
-def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/search").mock(
         return_value=httpx.Response(200, json={"results": []})
     )
@@ -54,14 +81,16 @@ def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext) -
 
 
 @respx.mock
-def test_text_response_body(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_text_response_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/text").mock(return_value=httpx.Response(200, text="hello world"))
     output = step.run(HttpInput(url="https://example.com/text"), context)
     assert output.body == "hello world"
 
 
 @respx.mock
-def test_404_raises_non_retryable(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_404_raises_non_retryable(
+    step: HttpRequestStep, context: ExecutionContext, mock_dns
+) -> None:
     respx.get("https://example.com/missing").mock(return_value=httpx.Response(404))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/missing"), context)
@@ -70,7 +99,7 @@ def test_404_raises_non_retryable(step: HttpRequestStep, context: ExecutionConte
 
 
 @respx.mock
-def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/flaky").mock(return_value=httpx.Response(503))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/flaky"), context)
@@ -79,7 +108,7 @@ def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext) 
 
 
 @respx.mock
-def test_429_raises_retryable(step: HttpRequestStep, context: ExecutionContext) -> None:
+def test_429_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/limited").mock(return_value=httpx.Response(429))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/limited"), context)

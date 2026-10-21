@@ -6,7 +6,12 @@ import asyncio
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode, TaskStep
+from syntara_plugin.runtime import (
+    ActionStep,
+    ContainerInvocationError,
+    ExecutionContext,
+    FailureCode,
+)
 
 from .executor import ScriptExecutionError, ScriptTimeoutError, run_script_async
 
@@ -24,7 +29,7 @@ class ScriptOutput(BaseModel):
     stdout_json: Any | None = None
 
 
-class ScriptStep(TaskStep[ScriptInput, ScriptOutput]):
+class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> ScriptOutput:
         try:
             result = asyncio.run(
