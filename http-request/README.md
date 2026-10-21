@@ -1,13 +1,15 @@
 # http-request step
 
 Makes an outbound HTTP request from a container step. Returns the response status,
-body, headers, and elapsed time. SSRF protection rejects private and loopback IPs.
+body, headers, and elapsed time. SSRF protection validates all destination IPs
+(including hostname resolution and redirect targets) and blocks private, loopback,
+link-local, and reserved addresses.
 
 ## Inputs
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `url` | string | Yes | — | Target URL (`http://` or `https://` only) |
+| `url` | string | Yes | — | Target URL (`http://` or `https://` only; SSRF-protected) |
 | `method` | string | No | `GET` | HTTP method |
 | `headers` | object | No | `{}` | Request headers |
 | `body` | object\|string | No | `null` | Request body |

@@ -18,7 +18,7 @@ spec:
       properties:
         url:
           type: string
-          description: Target URL (http:// or https:// only; private IPs are rejected).
+          description: Target URL (http:// or https:// only; SSRF protection blocks private/loopback/reserved IPs and validates redirect destinations).
         method:
           type: string
           enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
