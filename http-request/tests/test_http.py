@@ -48,7 +48,9 @@ def mock_dns():
 
 @respx.mock
 def test_successful_get(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
+    # Mock both original hostname and pinned IP (DNS pinning replaces hostname with IP)
     respx.get("https://example.com/api").mock(return_value=httpx.Response(200, json={"ok": True}))
+    respx.get("https://93.184.216.34/api").mock(return_value=httpx.Response(200, json={"ok": True}))
     output = step.run(HttpInput(url="https://example.com/api"), context)
     assert output.status_code == 200
     assert output.body == {"ok": True}
@@ -57,7 +59,8 @@ def test_successful_get(step: HttpRequestStep, context: ExecutionContext, mock_d
 
 @respx.mock
 def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
-    respx.post("https://example.com/api").mock(
+    respx.post("https://example.com/api").mock(return_value=httpx.Response(201, json={"created": True}))
+    respx.post("https://93.184.216.34/api").mock(
         return_value=httpx.Response(201, json={"created": True})
     )
     output = step.run(
@@ -73,6 +76,9 @@ def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext, m
     respx.get("https://example.com/search").mock(
         return_value=httpx.Response(200, json={"results": []})
     )
+    respx.get("https://93.184.216.34/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
     output = step.run(
         HttpInput(url="https://example.com/search", query_params={"q": "hello"}),
         context,
@@ -83,6 +89,7 @@ def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext, m
 @respx.mock
 def test_text_response_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/text").mock(return_value=httpx.Response(200, text="hello world"))
+    respx.get("https://93.184.216.34/text").mock(return_value=httpx.Response(200, text="hello world"))
     output = step.run(HttpInput(url="https://example.com/text"), context)
     assert output.body == "hello world"
 
@@ -92,6 +99,7 @@ def test_404_raises_non_retryable(
     step: HttpRequestStep, context: ExecutionContext, mock_dns
 ) -> None:
     respx.get("https://example.com/missing").mock(return_value=httpx.Response(404))
+    respx.get("https://93.184.216.34/missing").mock(return_value=httpx.Response(404))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/missing"), context)
     assert exc_info.value.code == FailureCode.REMOTE_REJECTED
@@ -101,6 +109,7 @@ def test_404_raises_non_retryable(
 @respx.mock
 def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/flaky").mock(return_value=httpx.Response(503))
+    respx.get("https://93.184.216.34/flaky").mock(return_value=httpx.Response(503))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/flaky"), context)
     assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT
@@ -110,6 +119,7 @@ def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext, 
 @respx.mock
 def test_429_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/limited").mock(return_value=httpx.Response(429))
+    respx.get("https://93.184.216.34/limited").mock(return_value=httpx.Response(429))
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="https://example.com/limited"), context)
     assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT

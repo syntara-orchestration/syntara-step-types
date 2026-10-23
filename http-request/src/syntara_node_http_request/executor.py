@@ -162,20 +162,80 @@ def _bound_response_body(response: httpx.Response) -> Any:
         return content.decode("utf-8", errors="replace")
 
 
+def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> httpx.Request:
+    """Modify a request to use pinned IP instead of hostname while preserving SNI.
+
+    Prevents DNS rebinding attacks by forcing connections to validated IPs (PR #8 review fix).
+
+    Args:
+        request: The httpx Request to modify
+        pinned_hosts: Map of hostname -> IP to pin
+
+    Returns:
+        Modified request with pinned IP
+    """
+    url = request.url
+    hostname = url.host
+
+    if not hostname or hostname not in pinned_hosts:
+        return request
+
+    pinned_ip = pinned_hosts[hostname]
+
+    # Replace hostname with IP in the URL
+    if url.port:
+        new_netloc = f"{pinned_ip}:{url.port}"
+    else:
+        new_netloc = pinned_ip
+
+    # Build new URL string
+    url_str = str(url)
+    original_netloc = f"{hostname}:{url.port}" if url.port else hostname
+    new_url_str = url_str.replace(f"://{original_netloc}", f"://{new_netloc}", 1)
+
+    # Create new request with updated URL and ensure Host header is set
+    new_request = httpx.Request(
+        method=request.method,
+        url=new_url_str,
+        headers=dict(request.headers),
+        content=request.content,
+        extensions=request.extensions,
+    )
+
+    # Set Host header to original hostname for HTTP/1.1
+    new_request.headers["host"] = hostname
+
+    # For HTTPS, set SNI server_hostname extension
+    if url.scheme == "https":
+        new_request.extensions["sni_hostname"] = hostname
+
+    return new_request
+
+
 def _make_request_with_validated_redirects(
     client: httpx.Client,
     request: httpx.Request,
     follow_redirects: bool,
+    pinned_hosts: dict[str, str],
 ) -> httpx.Response:
     """Make HTTP request with SSRF-validated redirects.
 
     Uses HTTPX's next_request for proper credential stripping and 307/308 handling.
+
+    Args:
+        client: HTTPX client to use for requests
+        request: Initial request to send
+        follow_redirects: Whether to follow redirect responses
+        pinned_hosts: Map of hostname -> IP to pin DNS and prevent rebinding
     """
     redirect_count = 0
 
     while True:
+        # Pin DNS for this request if needed
+        pinned_request = _pin_request_dns(request, pinned_hosts)
+
         # Send the request with streaming to avoid buffering
-        response = client.send(request, stream=True)
+        response = client.send(pinned_request, stream=True)
 
         # If not following redirects or not a redirect, return
         if not follow_redirects or not response.is_redirect:
@@ -204,9 +264,15 @@ def _make_request_with_validated_redirects(
                 outcome="not_completed",
             )
 
-        # Validate redirect destination against SSRF policy
+        # Validate redirect destination against SSRF policy and get pinned IP
         next_url = str(next_request.url)
-        _validate_url_no_ssrf(next_url)
+        _, pinned_ip = _validate_url_no_ssrf(next_url)
+
+        # Add redirect destination to pinned hosts if it has a hostname that needs pinning
+        if pinned_ip:
+            parsed = urlparse(next_url)
+            if parsed.hostname:
+                pinned_hosts[parsed.hostname] = pinned_ip
 
         response.close()
         request = next_request
@@ -214,9 +280,17 @@ def _make_request_with_validated_redirects(
 
 def execute_http_request(inputs: HttpInput) -> HttpOutput:
     """Make a bounded, SSRF-safe HTTP request and return structured output."""
-    # Validate initial URL (DNS pinning not needed as we validate each hop)
-    _validate_url_no_ssrf(inputs.url)
+    # Validate initial URL and get pinned IP to prevent DNS rebinding attacks
+    _, pinned_ip = _validate_url_no_ssrf(inputs.url)
     url, params = _resolve_query_params(inputs.url, dict(inputs.query_params))
+    headers = dict(inputs.headers)
+
+    # Build pinned hosts map for DNS resolution pinning
+    pinned_hosts: dict[str, str] = {}
+    if pinned_ip:
+        parsed = urlparse(inputs.url)
+        if parsed.hostname:
+            pinned_hosts[parsed.hostname] = pinned_ip
 
     # Prepare request body
     json_body = inputs.body if isinstance(inputs.body, dict) else None
@@ -229,7 +303,7 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
             request = client.build_request(
                 method=inputs.method.value,
                 url=url,
-                headers=dict(inputs.headers),
+                headers=headers,
                 params=params,
                 json=json_body,
                 content=str_body,
@@ -241,7 +315,16 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
                 client=client,
                 request=request,
                 follow_redirects=inputs.follow_redirects,
+                pinned_hosts=pinned_hosts,
             )
+
+            # Read response body INSIDE the client context to avoid "Bad file descriptor"
+            elapsed = time.time() - start
+            body = _bound_response_body(response)
+            status_code = response.status_code
+            response_headers = dict(response.headers)
+            reason_phrase = response.reason_phrase
+
     except httpx.TimeoutException as exc:
         raise ContainerInvocationError(
             FailureCode.TIMEOUT,
@@ -259,22 +342,33 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
             outcome="not_completed",
         ) from exc
 
-    elapsed = time.time() - start
-    body = _bound_response_body(response)
-
-    if response.status_code >= HTTPStatus.BAD_REQUEST:
-        retryable = response.status_code in _RETRYABLE_STATUS
+    if status_code >= HTTPStatus.BAD_REQUEST:
+        retryable = status_code in _RETRYABLE_STATUS
         code = FailureCode.UPSTREAM_TRANSIENT if retryable else FailureCode.REMOTE_REJECTED
         raise ContainerInvocationError(
             code,
-            f"HTTP {response.status_code} {response.reason_phrase}",
+            f"HTTP {status_code} {reason_phrase}",
             retryable=retryable,
             outcome="not_completed",
         )
 
+    # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
+    # Estimate JSON-encoded size with overhead
+    body_size = len(json.dumps(body)) if isinstance(body, dict) else len(body)
+    headers_size = sum(len(k) + len(v) + 4 for k, v in response_headers.items())  # +4 for quotes/colon
+    estimated_size = int((body_size + headers_size + 100) * 1.2)  # +20% for JSON encoding
+
+    if estimated_size > 1_048_576:  # 1 MiB SDK limit
+        raise ContainerInvocationError(
+            FailureCode.POLICY_DENIED,
+            f"HTTP response too large: {estimated_size} bytes (limit: 1 MiB)",
+            retryable=False,
+            outcome="not_completed",
+        )
+
     return HttpOutput(
-        status_code=response.status_code,
+        status_code=status_code,
         body=body,
-        headers=dict(response.headers),
+        headers=response_headers,
         elapsed=elapsed,
     )

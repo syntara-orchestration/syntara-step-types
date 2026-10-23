@@ -33,11 +33,13 @@ SAFE_ENV_ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
-# SDK permits 1 MiB for entire serialized result. Allow ~400KB per stream to account for:
-# - JSON encoding overhead (quotes, escaping)
-# - Result envelope (field names, return_code, etc.)
+# SDK permits 1 MiB for entire serialized result. Limit per stream to account for:
+# - JSON encoding overhead (quotes, escaping: ~20%)
+# - Result envelope (field names, return_code, etc.: ~1-2KB)
 # - stdout_json field which may duplicate stdout content
-DEFAULT_MAX_OUTPUT_BYTES = 409_600  # 400 KB per stream
+# - Two streams (stdout + stderr) plus potential stdout_json duplication
+# Conservative limit: (1048576 - 100000 reserve) / 3.5 ≈ 270KB per stream
+DEFAULT_MAX_OUTPUT_BYTES = 276_480  # 270 KB per stream
 MAX_ENV_VAR_LENGTH = 32768
 SCRIPT_CLEANUP_TERMINATE_TIMEOUT = 1.0
 SCRIPT_CLEANUP_KILL_TIMEOUT = 0.5
@@ -182,11 +184,26 @@ def _prepare_script_env(environment: dict[str, str] | None = None) -> dict[str, 
     return env
 
 
+async def _monitor_cancellation(cancellation: Any) -> None:
+    """Monitor cancellation event and raise when set (PR #8 review fix: wire cancellation)."""
+    if cancellation is None:
+        # No cancellation support - wait forever
+        await asyncio.Event().wait()
+        return
+
+    # Poll cancellation event periodically
+    while True:
+        if hasattr(cancellation, "is_set") and cancellation.is_set():
+            raise asyncio.CancelledError("Script execution cancelled")
+        await asyncio.sleep(0.1)  # Check every 100ms
+
+
 async def _execute_script_common(
     command: list[str],
     environment: dict[str, str] | None = None,
     timeout_seconds: float | None = None,
     max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
+    cancellation: Any = None,
 ) -> dict[str, Any]:
     env = _prepare_script_env(environment)
     process = None
@@ -202,10 +219,38 @@ async def _execute_script_common(
         )
         process_group_id = process.pid
 
-        stdout_bytes, stderr_bytes, stdout_truncated, stderr_truncated = await asyncio.wait_for(
-            _communicate_limited(process, max_output_bytes),
-            timeout=timeout_seconds,
-        )
+        # Create tasks for script execution and cancellation monitoring
+        execute_task = asyncio.create_task(_communicate_limited(process, max_output_bytes))
+        cancel_task = asyncio.create_task(_monitor_cancellation(cancellation))
+
+        # Race between execution, timeout, and cancellation
+        try:
+            done, pending = await asyncio.wait(
+                [execute_task, cancel_task],
+                timeout=timeout_seconds,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # Cancel any still-running tasks
+            for task in pending:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+            # Check what completed
+            if execute_task in done:
+                # Script completed normally
+                stdout_bytes, stderr_bytes, stdout_truncated, stderr_truncated = await execute_task
+            else:
+                # Timeout or cancellation occurred
+                raise asyncio.CancelledError("Script execution cancelled or timed out")
+
+        except TimeoutError as exc:
+            # Explicit timeout
+            raise ScriptTimeoutError("Script execution timed out") from exc
+        except asyncio.CancelledError as exc:
+            # Cancellation requested
+            raise ScriptTimeoutError("Script execution was cancelled") from exc
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
 
@@ -255,11 +300,25 @@ async def run_script_async(
     language: str,
     code: str,
     environment: dict[str, str],
+    cancellation: Any = None,
 ) -> dict[str, Any]:
     """Execute a script and return a raw result dict.
 
     Returns keys: return_code, stdout, stderr, stdout_json.
     Raises ScriptExecutionError or ScriptTimeoutError on failure.
+
+    Args:
+        language: Script language (python or bash)
+        code: Script source code
+        environment: Environment variables
+        cancellation: Cancellation event from ExecutionContext (checked periodically)
+
+    Note:
+        Timeout is enforced by the SDK at the gRPC protocol level, which sets the
+        cancellation event when the deadline is reached. The step monitors this
+        cancellation event and terminates the subprocess when it's set.
+
+        A fallback timeout of 10 minutes is also set to prevent indefinite hangs.
     """
     cgroup_limit = _get_cgroup_memory_limit()
 
@@ -275,7 +334,10 @@ async def run_script_async(
             code = _create_python_launcher_with_limit(code, int(cgroup_limit * 0.75))
         command = [sys.executable, "-c", code]
 
-    result = await _execute_script_common(command, environment)
+    # Use cancellation event from SDK for timeout, with 10min fallback
+    result = await _execute_script_common(
+        command, environment, timeout_seconds=600.0, cancellation=cancellation
+    )
 
     stdout_json = None
     if language == "python" and result["stdout"].strip():
@@ -287,4 +349,26 @@ async def run_script_async(
                 with contextlib.suppress(json.JSONDecodeError):
                     stdout_json = json.loads(lines[-1])
 
-    return {**result, "stdout_json": stdout_json}
+    final_result = {**result, "stdout_json": stdout_json}
+
+    # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
+    # Estimate JSON-encoded size accounting for stdout + stderr + stdout_json + overhead
+    estimated_size = (
+        len(result["stdout"])
+        + len(result["stderr"])
+        + (len(json.dumps(stdout_json)) if stdout_json else 0)
+        + 500  # Overhead for field names, return_code, quotes, escaping
+    )
+
+    # Add ~20% for JSON encoding overhead (escaping, quotes)
+    estimated_size = int(estimated_size * 1.2)
+
+    if estimated_size > 1_048_576:  # 1 MiB SDK limit
+        raise ScriptExecutionError(
+            message=f"Script output too large: {estimated_size} bytes (limit: 1 MiB)",
+            exit_code=-1,
+            stdout=result["stdout"][:1000],  # Truncate for error message
+            stderr=f"Output exceeded SDK result limit of 1 MiB (estimated: {estimated_size} bytes)",
+        )
+
+    return final_result

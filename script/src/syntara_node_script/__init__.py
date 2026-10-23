@@ -31,9 +31,23 @@ class ScriptOutput(BaseModel):
 
 class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> ScriptOutput:
+        # Check if already cancelled before starting
+        if context.cancelled:
+            raise ContainerInvocationError(
+                FailureCode.CANCELLED,
+                "Script execution was cancelled before starting",
+                retryable=False,
+                outcome="not_started",
+            )
+
         try:
             result = asyncio.run(
-                run_script_async(inputs.language, inputs.code, dict(inputs.environment))
+                run_script_async(
+                    inputs.language,
+                    inputs.code,
+                    dict(inputs.environment),
+                    cancellation=context.cancellation,
+                )
             )
             return ScriptOutput(**result)
         except ScriptExecutionError as exc:
