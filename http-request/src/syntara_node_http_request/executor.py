@@ -356,7 +356,9 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
     # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
     # Estimate JSON-encoded size with overhead
     body_size = len(json.dumps(body)) if isinstance(body, dict) else len(body)
-    headers_size = sum(len(k) + len(v) + 4 for k, v in response_headers.items())  # +4 for quotes/colon
+    headers_size = sum(
+        len(k) + len(v) + 4 for k, v in response_headers.items()
+    )  # +4 for quotes/colon
     estimated_size = int((body_size + headers_size + 100) * 1.2)  # +20% for JSON encoding
 
     if estimated_size > 1_048_576:  # 1 MiB SDK limit

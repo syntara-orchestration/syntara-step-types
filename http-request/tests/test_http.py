@@ -59,7 +59,9 @@ def test_successful_get(step: HttpRequestStep, context: ExecutionContext, mock_d
 
 @respx.mock
 def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
-    respx.post("https://example.com/api").mock(return_value=httpx.Response(201, json={"created": True}))
+    respx.post("https://example.com/api").mock(
+        return_value=httpx.Response(201, json={"created": True})
+    )
     respx.post("https://93.184.216.34/api").mock(
         return_value=httpx.Response(201, json={"created": True})
     )
@@ -89,7 +91,9 @@ def test_query_params_merged(step: HttpRequestStep, context: ExecutionContext, m
 @respx.mock
 def test_text_response_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://example.com/text").mock(return_value=httpx.Response(200, text="hello world"))
-    respx.get("https://93.184.216.34/text").mock(return_value=httpx.Response(200, text="hello world"))
+    respx.get("https://93.184.216.34/text").mock(
+        return_value=httpx.Response(200, text="hello world")
+    )
     output = step.run(HttpInput(url="https://example.com/text"), context)
     assert output.body == "hello world"
 

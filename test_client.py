@@ -278,7 +278,7 @@ async def test_script_examples():
     print("\nExample 3: Environment Variables")
     await call_script_step(
         language="python",
-        code='import os; print(f"API_KEY={os.environ.get(\'API_KEY\', \'not set\')}")',
+        code="import os; print(f\"API_KEY={os.environ.get('API_KEY', 'not set')}\")",
         environment={"API_KEY": "test-key-123"},
     )
 
