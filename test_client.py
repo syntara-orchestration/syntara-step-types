@@ -16,7 +16,6 @@ Usage:
 """
 
 import asyncio
-import base64
 import json
 import sys
 from typing import Any
@@ -141,7 +140,7 @@ async def call_script_step(
 
             elif event.HasField("failure"):
                 failure = event.failure
-                print(f"Script failed:")
+                print("Script failed:")
                 print(f"  Code: {failure.code}")
                 print(f"  Message: {failure.message}")
                 print(f"  Retryable: {failure.retryable}")
@@ -240,7 +239,7 @@ async def call_http_step(
 
             elif event.HasField("failure"):
                 failure = event.failure
-                print(f"HTTP request failed:")
+                print("HTTP request failed:")
                 print(f"  Code: {failure.code}")
                 print(f"  Message: {failure.message}")
                 print(f"  Retryable: {failure.retryable}")
