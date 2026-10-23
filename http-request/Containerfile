@@ -9,7 +9,7 @@ COPY http-request/pyproject.toml /app/pyproject.toml
 COPY http-request/manifest.yaml /app/manifest.yaml
 COPY http-request/src /app/src
 RUN uv pip install --system /deps/syntara_plugin_contracts-*.whl
-RUN uv pip install --system /deps/syntara_plugin_runtime-*.whl
+RUN uv pip install --system /deps/syntara_plugin_sdk-*.whl
 RUN uv pip install --system "httpx>=0.28" "pyyaml>=6.0"
 RUN uv pip install --system --no-deps .
 

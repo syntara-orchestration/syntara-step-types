@@ -802,14 +802,14 @@ source = { editable = "http-request" }
 dependencies = [
     { name = "httpx" },
     { name = "pyyaml" },
-    { name = "syntara-plugin-runtime" },
+    { name = "syntara-plugin-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-runtime", editable = "../syntara-plugin-sdk/sdks/python/packages/runtime" },
+    { name = "syntara-plugin-sdk", editable = "../syntara-plugin-sdk/sdks/python/packages/sdk" },
 ]
 
 [[package]]
@@ -818,13 +818,13 @@ version = "0.1.0"
 source = { editable = "script" }
 dependencies = [
     { name = "pyyaml" },
-    { name = "syntara-plugin-runtime" },
+    { name = "syntara-plugin-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-runtime", editable = "../syntara-plugin-sdk/sdks/python/packages/runtime" },
+    { name = "syntara-plugin-sdk", editable = "../syntara-plugin-sdk/sdks/python/packages/sdk" },
 ]
 
 [[package]]
@@ -859,6 +859,23 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "referencing", specifier = ">=0.37" },
     { name = "syntara-plugin-contracts", editable = "../syntara-plugin-sdk/sdks/python/packages/contracts" },
+]
+
+[[package]]
+name = "syntara-plugin-sdk"
+version = "0.1.0"
+source = { editable = "../syntara-plugin-sdk/sdks/python/packages/sdk" }
+dependencies = [
+    { name = "pyyaml" },
+    { name = "syntara-plugin-contracts" },
+    { name = "syntara-plugin-runtime" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "syntara-plugin-contracts", editable = "../syntara-plugin-sdk/sdks/python/packages/contracts" },
+    { name = "syntara-plugin-runtime", editable = "../syntara-plugin-sdk/sdks/python/packages/runtime" },
 ]
 
 [[package]]
