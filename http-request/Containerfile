@@ -1,0 +1,21 @@
+FROM python:3.12-slim AS base
+WORKDIR /app
+
+FROM base AS builder
+RUN pip install --no-cache-dir uv
+# .sdk-dist contains built wheels from `make node-image`
+COPY .sdk-dist/*.whl /deps/
+COPY http-request/pyproject.toml /app/pyproject.toml
+COPY http-request/manifest.yaml /app/manifest.yaml
+COPY http-request/src /app/src
+RUN uv pip install --system /deps/syntara_plugin_contracts-*.whl
+RUN uv pip install --system /deps/syntara_plugin_sdk-*.whl
+RUN uv pip install --system "httpx>=0.28" "pyyaml>=6.0"
+RUN uv pip install --system --no-deps .
+
+FROM base
+COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/src /app/src
+EXPOSE 50051
+ENTRYPOINT ["python", "-m", "syntara_node_http_request"]
