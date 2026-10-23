@@ -54,7 +54,7 @@ node-image:
 	fi; \
 	cd $$SDK_PATH/sdks/python/packages/contracts && $(UV) build --out-dir $(CURDIR)/.sdk-dist && \
 	cd $(CURDIR) && \
-	cd $$SDK_PATH/sdks/python/packages/runtime && $(UV) build --out-dir $(CURDIR)/.sdk-dist
+	cd $$SDK_PATH/sdks/python/packages/sdk && $(UV) build --out-dir $(CURDIR)/.sdk-dist
 	$(CONTAINER_ENGINE) build \
 		--build-arg SOURCE_URL="$(SOURCE_URL)" \
 		--build-arg VCS_REF="$(VCS_REF)" \

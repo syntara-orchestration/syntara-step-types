@@ -180,6 +180,7 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
     if not hostname or hostname not in pinned_hosts:
         return request
 
+    # Replace hostname with validated IP to prevent DNS rebinding
     pinned_ip = pinned_hosts[hostname]
 
     # Replace hostname with IP in the URL

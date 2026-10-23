@@ -21,7 +21,7 @@ dev = [
 members = ["script", "http-request"]
 
 [tool.uv.sources]
-syntara-plugin-runtime = { path = "../syntara-plugin-sdk/sdks/python/packages/runtime", editable = true }
+syntara-plugin-runtime = { path = "../syntara-plugin-sdk/sdks/python/packages/sdk", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
