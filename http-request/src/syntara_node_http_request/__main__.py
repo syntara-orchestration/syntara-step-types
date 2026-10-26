@@ -11,7 +11,7 @@ from types import FrameType
 import grpc
 import yaml
 from syntara_plugin.runtime import (
-    InstalledActionManifest,
+    InstalledStepManifest,
     StepBindings,
     StepDescriptor,
     add_container_runtime_service,
@@ -27,22 +27,22 @@ GRPC_ADDRESS = "0.0.0.0:50051"
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
-    # Load the installed Action manifest
+    # Load the installed Step manifest
     manifest_path = Path(__file__).parent / "manifest.yaml"
     with manifest_path.open() as f:
         manifest_doc = yaml.safe_load(f)
 
-    # Create installed action manifest from the loaded document
-    installed_action = InstalledActionManifest.from_manifest(
+    # Create installed step manifest from the loaded document
+    installed_step = InstalledStepManifest.from_manifest(
         step_identity=STEP_IDENTITY,
         manifest=manifest_doc,
         assets={},  # No external assets for inline schemas
     )
 
-    # Bind using the installed Action manifest
+    # Bind using the installed Step manifest
     bindings = StepBindings()
     step = HttpRequestStep()
-    descriptor = StepDescriptor.for_installed_action(step, installed_action)
+    descriptor = StepDescriptor.for_installed_step(step, installed_step)
     bindings.bind(descriptor, step)
 
     registry = step_registry_from_bindings(bindings)
