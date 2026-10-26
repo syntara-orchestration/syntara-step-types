@@ -6,7 +6,7 @@ metadata:
   description: Makes an outbound HTTP request from a container step.
 spec:
   runtime:
-    kind: custom-workload
+    kind: custom-runner
     entryPoint: "syntara_node_http_request:HttpRequestStep"
   input:
     kind: inline

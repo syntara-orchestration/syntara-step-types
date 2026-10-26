@@ -6,7 +6,7 @@ metadata:
   description: Runs Python or Bash code in an isolated subprocess container.
 spec:
   runtime:
-    kind: custom-workload
+    kind: custom-runner
     entryPoint: "syntara_node_script:ScriptStep"
   input:
     kind: inline
