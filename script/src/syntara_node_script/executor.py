@@ -59,6 +59,10 @@ class ScriptTimeoutError(Exception):
     """Raised when script execution exceeds the allowed timeout."""
 
 
+class ScriptCancelledError(Exception):
+    """Raised when script execution is cancelled."""
+
+
 async def _cleanup_process(process: asyncio.subprocess.Process, process_group_id: int) -> None:
     """Clean up process and all descendants in its process group."""
     # First, try to terminate the direct process if still running
@@ -237,20 +241,23 @@ async def _execute_script_common(
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-            # Check what completed
+            # Check what completed (PR #8 review fix: distinguish timeout from cancellation)
             if execute_task in done:
                 # Script completed normally
                 stdout_bytes, stderr_bytes, stdout_truncated, stderr_truncated = await execute_task
+            elif cancel_task in done:
+                # Cancellation occurred
+                raise ScriptCancelledError("Script execution was cancelled")
             else:
-                # Timeout or cancellation occurred
-                raise asyncio.CancelledError("Script execution cancelled or timed out")
+                # Timeout occurred (no tasks completed)
+                raise ScriptTimeoutError("Script execution timed out")
 
         except TimeoutError as exc:
-            # Explicit timeout
+            # Explicit timeout from asyncio.wait timeout parameter
             raise ScriptTimeoutError("Script execution timed out") from exc
         except asyncio.CancelledError as exc:
-            # Cancellation requested
-            raise ScriptTimeoutError("Script execution was cancelled") from exc
+            # Cancellation during task execution
+            raise ScriptCancelledError("Script execution was cancelled") from exc
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
 
@@ -352,23 +359,18 @@ async def run_script_async(
     final_result = {**result, "stdout_json": stdout_json}
 
     # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
-    # Estimate JSON-encoded size accounting for stdout + stderr + stdout_json + overhead
-    estimated_size = (
-        len(result["stdout"])
-        + len(result["stderr"])
-        + (len(json.dumps(stdout_json)) if stdout_json else 0)
-        + 500  # Overhead for field names, return_code, quotes, escaping
-    )
+    # Use actual serialization instead of estimation to:
+    # - Handle falsy JSON values correctly (0, False, [], "" are not counted as 0 bytes)
+    # - Account for exact escaping overhead (control chars = 100%, not 20%)
+    # - Handle all JSON types (int, bool, None, list, dict, str)
+    actual_size = len(json.dumps(final_result))
 
-    # Add ~20% for JSON encoding overhead (escaping, quotes)
-    estimated_size = int(estimated_size * 1.2)
-
-    if estimated_size > 1_048_576:  # 1 MiB SDK limit
+    if actual_size > 1_048_576:  # 1 MiB SDK limit
         raise ScriptExecutionError(
-            message=f"Script output too large: {estimated_size} bytes (limit: 1 MiB)",
+            message=f"Script output too large: {actual_size} bytes (limit: 1 MiB)",
             exit_code=-1,
             stdout=result["stdout"][:1000],  # Truncate for error message
-            stderr=f"Output exceeded SDK result limit of 1 MiB (estimated: {estimated_size} bytes)",
+            stderr=f"Output exceeded SDK result limit of 1 MiB (actual: {actual_size} bytes)",
         )
 
     return final_result

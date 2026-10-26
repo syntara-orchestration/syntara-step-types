@@ -166,6 +166,7 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
     """Modify a request to use pinned IP instead of hostname while preserving SNI.
 
     Prevents DNS rebinding attacks by forcing connections to validated IPs (PR #8 review fix).
+    Handles URLs with userinfo (user:pass@host) and IPv6 addresses with proper bracketing.
 
     Args:
         request: The httpx Request to modify
@@ -180,21 +181,42 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
     if not hostname or hostname not in pinned_hosts:
         return request
 
-    # Replace hostname with validated IP to prevent DNS rebinding
     pinned_ip = pinned_hosts[hostname]
+    parsed = urlparse(str(url))
 
-    # Replace hostname with IP in the URL
-    if url.port:
-        new_netloc = f"{pinned_ip}:{url.port}"
+    # Handle IPv6 addresses with brackets (required for URLs with ports)
+    if ":" in pinned_ip and not pinned_ip.startswith("["):
+        ip_part = f"[{pinned_ip}]"
     else:
-        new_netloc = pinned_ip
+        ip_part = pinned_ip
 
-    # Build new URL string
-    url_str = str(url)
-    original_netloc = f"{hostname}:{url.port}" if url.port else hostname
-    new_url_str = url_str.replace(f"://{original_netloc}", f"://{new_netloc}", 1)
+    # Preserve userinfo (username:password@) if present
+    if parsed.username:
+        if parsed.password:
+            userinfo = f"{parsed.username}:{parsed.password}@"
+        else:
+            userinfo = f"{parsed.username}@"
+    else:
+        userinfo = ""
 
-    # Create new request with updated URL and ensure Host header is set
+    # Build new netloc: [userinfo@]IP[:port]
+    if parsed.port:
+        new_netloc = f"{userinfo}{ip_part}:{parsed.port}"
+    else:
+        new_netloc = f"{userinfo}{ip_part}"
+
+    # Reconstruct URL with pinned IP using urlunsplit for reliability
+    new_url_str = urlunsplit(
+        (
+            parsed.scheme,
+            new_netloc,
+            parsed.path,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+    # Create new request with pinned URL
     new_request = httpx.Request(
         method=request.method,
         url=new_url_str,
@@ -203,11 +225,11 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
         extensions=request.extensions,
     )
 
-    # Set Host header to original hostname for HTTP/1.1
+    # Set Host header to original hostname for HTTP/1.1 and same-origin semantics
     new_request.headers["host"] = hostname
 
     # For HTTPS, set SNI server_hostname extension
-    if url.scheme == "https":
+    if parsed.scheme == "https":
         new_request.extensions["sni_hostname"] = hostname
 
     return new_request
@@ -237,6 +259,11 @@ def _make_request_with_validated_redirects(
 
         # Send the request with streaming to avoid buffering
         response = client.send(pinned_request, stream=True)
+
+        # Force header read before accessing next_request (PR #8 review fix)
+        # This ensures the response is in a valid state for redirect processing
+        _ = response.status_code
+        _ = response.headers
 
         # If not following redirects or not a redirect, return
         if not follow_redirects or not response.is_redirect:
@@ -354,17 +381,20 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
         )
 
     # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
-    # Estimate JSON-encoded size with overhead
-    body_size = len(json.dumps(body)) if isinstance(body, dict) else len(body)
-    headers_size = sum(
-        len(k) + len(v) + 4 for k, v in response_headers.items()
-    )  # +4 for quotes/colon
-    estimated_size = int((body_size + headers_size + 100) * 1.2)  # +20% for JSON encoding
+    # Use actual serialization instead of estimation to handle all JSON types correctly
+    # (int, bool, None, list, dict, str) and account for exact escaping overhead
+    result_dict = {
+        "status_code": status_code,
+        "body": body,
+        "headers": response_headers,
+        "elapsed": elapsed,
+    }
+    actual_size = len(json.dumps(result_dict))
 
-    if estimated_size > 1_048_576:  # 1 MiB SDK limit
+    if actual_size > 1_048_576:  # 1 MiB SDK limit
         raise ContainerInvocationError(
             FailureCode.POLICY_DENIED,
-            f"HTTP response too large: {estimated_size} bytes (limit: 1 MiB)",
+            f"HTTP response too large: {actual_size} bytes (limit: 1 MiB)",
             retryable=False,
             outcome="not_completed",
         )

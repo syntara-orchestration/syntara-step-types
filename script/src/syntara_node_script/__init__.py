@@ -13,7 +13,12 @@ from syntara_plugin.runtime import (
     FailureCode,
 )
 
-from .executor import ScriptExecutionError, ScriptTimeoutError, run_script_async
+from .executor import (
+    ScriptCancelledError,
+    ScriptExecutionError,
+    ScriptTimeoutError,
+    run_script_async,
+)
 
 
 class ScriptInput(BaseModel):
@@ -62,5 +67,12 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
                 FailureCode.TIMEOUT,
                 "Script execution timed out",
                 retryable=True,
+                outcome="not_completed",
+            ) from exc
+        except ScriptCancelledError as exc:
+            raise ContainerInvocationError(
+                FailureCode.CANCELLED,
+                "Script execution was cancelled",
+                retryable=False,  # Cancellation is NOT retryable
                 outcome="not_completed",
             ) from exc
