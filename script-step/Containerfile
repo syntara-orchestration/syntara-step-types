@@ -1,0 +1,25 @@
+ARG SYNTARA_RUNTIME_BASE_IMAGE=registry.access.redhat.com/ubi9/python-312@sha256:e6a10c3150624fbfd33dbd7721ef99ce7a1001b417d64427ad58515ab8044121
+
+FROM ${SYNTARA_RUNTIME_BASE_IMAGE}
+
+WORKDIR /app
+
+# Wheels staged by the build script: syntara-plugin-contracts + syntara-script-step.
+COPY wheels /wheels
+RUN python3.12 -m pip install --no-cache-dir --only-binary :all: /wheels/*.whl
+
+USER 0
+RUN mkdir -p /etc/syntara
+COPY runtime.json /etc/syntara/runtime.json
+RUN chmod 0644 /etc/syntara/runtime.json
+
+# Dev-only entrypoint: the Execution Plane currently dials an insecure channel
+# over the API-server port-forward, so the standard server module's mTLS
+# requirement for non-loopback listeners cannot be met yet.
+ENV SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+USER 1001
+EXPOSE 50051
+ENTRYPOINT ["python3.12", "-m", "script_step.server_main"]

@@ -1,0 +1,16 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: script-step
+  version: 0.1.0
+  displayName: Script Step
+  description: Runs Python and Bash scripts as isolated container workloads on the Execution Plane.
+spec:
+  documentation:
+    path: docs/README.md
+  workload:
+    image: script-step-workload
+  targets:
+    - steps/python/manifest.yaml
+    - steps/bash/manifest.yaml

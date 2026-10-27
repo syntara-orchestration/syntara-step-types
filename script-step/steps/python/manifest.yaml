@@ -1,0 +1,36 @@
+apiVersion: syntara.io/v1alpha1
+kind: Action
+metadata:
+  name: python
+  displayName: Run Python script
+  description: Executes Python 3 code in an isolated subprocess and returns stdout, stderr, the exit code, and parsed JSON output when stdout is valid JSON.
+spec:
+  runtime:
+    kind: custom-runner
+    entryPoint: script_step.runtime:PythonScriptStep
+  input:
+    kind: asset
+    path: schemas/python.input.yaml
+  output:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      required: [return_code, stdout, stderr]
+      properties:
+        return_code:
+          type: integer
+          description: Process exit code.
+        stdout:
+          type: string
+          description: Standard output captured from the script.
+        stderr:
+          type: string
+          description: Standard error captured from the script.
+        stdout_json:
+          description: Parsed JSON from stdout when the output is valid JSON.
+  error:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: true

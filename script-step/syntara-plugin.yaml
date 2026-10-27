@@ -1,0 +1,16 @@
+apiVersion: syntara.io/v1alpha1
+kind: PluginBuildSettings
+manifest: plugin.yaml
+registry:
+  origin: http://localhost:5000
+  workloadRepository: syntara-script-step
+  allowInsecureLoopbackHttp: true
+build:
+  artifactOutput: dist/script-step.oci.tar
+  workload:
+    engine: podman
+    context: .
+    containerfile: Containerfile
+    tag: "0.1.0"
+    platform: linux/amd64
+    imageId: script-step-workload

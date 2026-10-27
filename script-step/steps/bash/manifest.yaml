@@ -1,0 +1,34 @@
+apiVersion: syntara.io/v1alpha1
+kind: Action
+metadata:
+  name: bash
+  displayName: Run Bash script
+  description: Executes a Bash script in an isolated subprocess and returns stdout, stderr, and the exit code.
+spec:
+  runtime:
+    kind: custom-runner
+    entryPoint: script_step.runtime:BashScriptStep
+  input:
+    kind: asset
+    path: schemas/bash.input.yaml
+  output:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      required: [return_code, stdout, stderr]
+      properties:
+        return_code:
+          type: integer
+          description: Process exit code.
+        stdout:
+          type: string
+          description: Standard output captured from the script.
+        stderr:
+          type: string
+          description: Standard error captured from the script.
+  error:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: true

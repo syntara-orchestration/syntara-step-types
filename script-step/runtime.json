@@ -1,0 +1,6 @@
+{
+  "abi": "syntara.container/v1alpha1",
+  "adapter": {
+    "bindingsFactory": "script_step.runtime:create_bindings"
+  }
+}

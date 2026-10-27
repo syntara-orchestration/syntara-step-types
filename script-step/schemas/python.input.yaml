@@ -1,0 +1,15 @@
+type: object
+description: Inputs accepted by the Python script action.
+additionalProperties: false
+required:
+  - code
+properties:
+  code:
+    type: string
+    minLength: 1
+    description: Python source code to execute.
+  environment:
+    type: object
+    additionalProperties:
+      type: string
+    description: Environment variables passed to the script process.
