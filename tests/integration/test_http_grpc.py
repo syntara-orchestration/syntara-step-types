@@ -46,8 +46,7 @@ def _execute(
             return json.loads(event.result.output_json)
         if event.HasField("failure"):
             pytest.fail(
-                f"Step returned failure — code={event.failure.code} "
-                f"message={event.failure.message}"
+                f"Step returned failure — code={event.failure.code} message={event.failure.message}"
             )
     pytest.fail("Execute stream closed without a result or failure event")
 

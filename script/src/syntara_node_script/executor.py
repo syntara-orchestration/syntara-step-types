@@ -283,7 +283,13 @@ async def _execute_script_common(
 
         return {"stdout": stdout, "stderr": stderr, "return_code": returncode}
 
-    except (ScriptExecutionError, ScriptTimeoutError, ScriptCancelledError, RuntimeError, ValueError):
+    except (
+        ScriptExecutionError,
+        ScriptTimeoutError,
+        ScriptCancelledError,
+        RuntimeError,
+        ValueError,
+    ):
         raise
     except TimeoutError as exc:
         raise ScriptTimeoutError("Script execution timed out") from exc
