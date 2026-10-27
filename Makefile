@@ -26,15 +26,29 @@ typecheck:
 
 .PHONY: test
 test:
+	$(UV) run --frozen --all-packages pytest -m "not integration"
+
+.PHONY: test-integration
+test-integration:
+	$(UV) run --frozen --all-packages pytest -m integration
+
+.PHONY: test-all
+test-all:
 	$(UV) run --frozen --all-packages pytest
 
 .PHONY: test-ci
 test-ci:
-	$(UV) run --frozen --all-packages pytest \
+	$(UV) run --frozen --all-packages pytest -m "not integration" \
 		--junitxml=test-results/junit.xml \
 		--cov \
 		--cov-report=term-missing \
 		--cov-report=xml:test-results/coverage.xml
+
+.PHONY: test-integration-ci
+test-integration-ci:
+	$(UV) run --frozen --all-packages pytest -m integration \
+		--junitxml=test-results/integration-junit.xml \
+		-v
 
 .PHONY: check
 check: lint typecheck test

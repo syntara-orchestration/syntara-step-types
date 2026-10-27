@@ -34,8 +34,6 @@ async def call_health_check(host: str, port: int) -> dict[str, Any]:
         Health response dict
 
     """
-    # Import proto definitions
-    sys.path.insert(0, "../syntara-plugin-sdk/sdks/python/packages/runtime/src")
     from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
@@ -80,8 +78,6 @@ async def call_script_step(
         Script execution result
 
     """
-    # Import proto definitions
-    sys.path.insert(0, "../syntara-plugin-sdk/sdks/python/packages/runtime/src")
     from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
     # Prepare inputs
@@ -179,8 +175,6 @@ async def call_http_step(
         HTTP response result
 
     """
-    # Import proto definitions
-    sys.path.insert(0, "../syntara-plugin-sdk/sdks/python/packages/runtime/src")
     from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
     # Prepare inputs
