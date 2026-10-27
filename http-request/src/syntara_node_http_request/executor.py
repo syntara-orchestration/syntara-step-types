@@ -43,11 +43,13 @@ def _validate_url_no_ssrf(url: str) -> tuple[str, str | None]:
             outcome="not_started",
         )
 
-    # Use httpx.URL.host for the normalized hostname — httpx converts IDN/unicode to
-    # punycode ACE form, matching what request.url.host returns in _pin_request_dns.
-    # This prevents a DNS-rebinding bypass where urlparse and httpx return different
-    # forms of the same IDNA hostname, causing a pin-map miss.
-    host = httpx.URL(url).host
+    # Use httpx.URL.host as the map key — httpx decodes punycode ACE to unicode,
+    # matching what request.url.host returns in _pin_request_dns (consistent lookup).
+    # For socket.getaddrinfo use the ACE (punycode) form from the httpx string
+    # representation, which is portable across glibc and musl resolvers.
+    httpx_url = httpx.URL(url)
+    host = httpx_url.host  # unicode, used as pinned_hosts map key
+    ace_host = urlparse(str(httpx_url)).hostname or host  # ACE, used for getaddrinfo
     if not host:
         raise ContainerInvocationError(
             FailureCode.POLICY_DENIED,
@@ -70,12 +72,14 @@ def _validate_url_no_ssrf(url: str) -> tuple[str, str | None]:
     except ValueError:
         pass  # Not an IP literal, continue to DNS resolution
 
-    # Resolve hostname and check all resolved addresses
+    # Resolve hostname and check all resolved addresses.
+    # Use the ACE (punycode) form for portability across glibc and musl resolvers.
     try:
-        addr_info = socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        addr_info = socket.getaddrinfo(ace_host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
     except socket.gaierror as exc:
-        # Distinguish temporary DNS failures from permanent ones
-        if exc.errno in (socket.EAI_AGAIN, socket.EAI_NONAME, socket.EAI_FAIL):
+        # EAI_AGAIN is the only genuinely transient resolver failure.
+        # EAI_NONAME / EAI_FAIL indicate permanent name resolution failure.
+        if exc.errno == socket.EAI_AGAIN:
             # Temporary resolver failure - retryable
             raise ContainerInvocationError(
                 FailureCode.UPSTREAM_TRANSIENT,
@@ -129,7 +133,8 @@ def _resolve_query_params(
     split = urlsplit(url)
     existing = dict(parse_qsl(split.query, keep_blank_values=True))
     merged = {**existing, **query_params}
-    clean = urlunsplit((split.scheme, split.netloc, split.path, "", split.fragment))
+    # Strip fragment — clients must not send the fragment component in HTTP requests (RFC 9110 §4.1).
+    clean = urlunsplit((split.scheme, split.netloc, split.path, "", ""))
     return clean, merged
 
 

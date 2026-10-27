@@ -79,11 +79,11 @@ async def _cleanup_process(process: asyncio.subprocess.Process, process_group_id
         except ProcessLookupError:
             pass
 
-    # Always attempt to clean up any remaining process group members
-    # This catches background processes that survive after the leader exits
+    # Clean up any surviving process group members (background descendants).
+    # SIGTERM is best-effort; SIGKILL follows immediately because we have no
+    # asyncio handle to any background descendant — there is nothing to await.
     try:
         os.killpg(process_group_id, signal.SIGTERM)
-        await asyncio.sleep(SCRIPT_CLEANUP_TERMINATE_TIMEOUT)
     except ProcessLookupError:
         pass  # Process group already gone
 
@@ -321,11 +321,11 @@ async def run_script_async(
         cancellation: Cancellation event from ExecutionContext (checked periodically)
 
     Note:
-        Timeout is enforced by the SDK at the gRPC protocol level, which sets the
-        cancellation event when the deadline is reached. The step monitors this
-        cancellation event and terminates the subprocess when it's set.
-
-        A fallback timeout of 10 minutes is also set to prevent indefinite hangs.
+        The SDK sets the cancellation event when the gRPC deadline expires or the
+        caller cancels. This step monitors that event via _monitor_cancellation and
+        terminates the subprocess process group when it fires. The 600 s timeout
+        passed to _execute_script_common is a hard fallback only — it does not
+        replace the SDK-level cancellation signal.
     """
     cgroup_limit = _get_cgroup_memory_limit()
 

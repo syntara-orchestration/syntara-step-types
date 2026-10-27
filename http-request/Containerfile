@@ -16,6 +16,5 @@ RUN uv pip install --system --no-deps .
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
 COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /app/src /app/src
 EXPOSE 50051
 ENTRYPOINT ["python", "-m", "syntara_node_http_request"]
