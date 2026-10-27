@@ -43,7 +43,11 @@ def _validate_url_no_ssrf(url: str) -> tuple[str, str | None]:
             outcome="not_started",
         )
 
-    host = parsed.hostname
+    # Use httpx.URL.host for the normalized hostname — httpx converts IDN/unicode to
+    # punycode ACE form, matching what request.url.host returns in _pin_request_dns.
+    # This prevents a DNS-rebinding bypass where urlparse and httpx return different
+    # forms of the same IDNA hostname, causing a pin-map miss.
+    host = httpx.URL(url).host
     if not host:
         raise ContainerInvocationError(
             FailureCode.POLICY_DENIED,
@@ -216,17 +220,31 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
         )
     )
 
+    # Read request body before creating the new request.  Accessing request.content
+    # on an HTTPX Request that holds an unread stream (e.g. a redirect next_request)
+    # raises RequestNotRead; calling read() first materialises the bytes.
+    try:
+        body = request.content
+    except httpx.RequestNotRead:
+        request.read()
+        body = request.content
+
     # Create new request with pinned URL
     new_request = httpx.Request(
         method=request.method,
         url=new_url_str,
         headers=dict(request.headers),
-        content=request.content,
+        content=body,
         extensions=request.extensions,
     )
 
-    # Set Host header to original hostname for HTTP/1.1 and same-origin semantics
-    new_request.headers["host"] = hostname
+    # Set Host header to original hostname, preserving non-default ports.
+    # HTTP/1.1 requires host:port when the port is non-standard.
+    default_port = {"http": 80, "https": 443}.get(parsed.scheme, 0)
+    if parsed.port and parsed.port != default_port:
+        new_request.headers["host"] = f"{hostname}:{parsed.port}"
+    else:
+        new_request.headers["host"] = hostname
 
     # For HTTPS, set SNI server_hostname extension
     if parsed.scheme == "https":
@@ -292,15 +310,25 @@ def _make_request_with_validated_redirects(
                 outcome="not_completed",
             )
 
-        # Validate redirect destination against SSRF policy and get pinned IP
+        # Validate redirect destination against SSRF policy and get pinned IP.
+        # Key by httpx-normalized hostname to match _pin_request_dns lookup.
         next_url = str(next_request.url)
         _, pinned_ip = _validate_url_no_ssrf(next_url)
-
-        # Add redirect destination to pinned hosts if it has a hostname that needs pinning
         if pinned_ip:
-            parsed = urlparse(next_url)
-            if parsed.hostname:
-                pinned_hosts[parsed.hostname] = pinned_ip
+            host_key = httpx.URL(next_url).host
+            if host_key:
+                pinned_hosts[host_key] = pinned_ip
+
+        # Restore credentials stripped by HTTPX due to IP/hostname origin mismatch.
+        # HTTPX computed next_request against the pinned IP URL, so it treated a
+        # same-hostname absolute redirect as cross-origin and stripped Authorization/Cookie.
+        # Compare the real (unpinned) hostnames to decide whether to re-add them.
+        current_host = httpx.URL(str(request.url)).host
+        next_host = httpx.URL(next_url).host
+        if current_host and next_host == current_host:
+            for cred_header in ("authorization", "cookie"):
+                if cred_header in request.headers and cred_header not in next_request.headers:
+                    next_request.headers[cred_header] = request.headers[cred_header]
 
         response.close()
         request = next_request
@@ -313,12 +341,12 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
     url, params = _resolve_query_params(inputs.url, dict(inputs.query_params))
     headers = dict(inputs.headers)
 
-    # Build pinned hosts map for DNS resolution pinning
+    # Build pinned hosts map keyed by httpx-normalized hostname to match _pin_request_dns.
     pinned_hosts: dict[str, str] = {}
     if pinned_ip:
-        parsed = urlparse(inputs.url)
-        if parsed.hostname:
-            pinned_hosts[parsed.hostname] = pinned_ip
+        host_key = httpx.URL(inputs.url).host
+        if host_key:
+            pinned_hosts[host_key] = pinned_ip
 
     # Prepare request body
     json_body = inputs.body if isinstance(inputs.body, dict) else None

@@ -45,7 +45,9 @@ def main() -> None:
     bindings.bind(descriptor, step)
 
     registry = step_registry_from_bindings(bindings)
-    server = grpc.server(ThreadPoolExecutor(max_workers=4))
+    # Reserve enough threads so Cancel and Health RPCs can always get a thread,
+    # even when the maximum number of concurrent Execute calls are in flight.
+    server = grpc.server(ThreadPoolExecutor(max_workers=10))
     add_container_runtime_service(server, registry)
     server.add_insecure_port(GRPC_ADDRESS)
     server.start()

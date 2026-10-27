@@ -283,7 +283,7 @@ async def _execute_script_common(
 
         return {"stdout": stdout, "stderr": stderr, "return_code": returncode}
 
-    except (ScriptExecutionError, RuntimeError, ValueError):
+    except (ScriptExecutionError, ScriptTimeoutError, ScriptCancelledError, RuntimeError, ValueError):
         raise
     except TimeoutError as exc:
         raise ScriptTimeoutError("Script execution timed out") from exc
@@ -343,7 +343,11 @@ async def run_script_async(
 
     # Use cancellation event from SDK for timeout, with 10min fallback
     result = await _execute_script_common(
-        command, environment, timeout_seconds=600.0, cancellation=cancellation
+        command,
+        environment,
+        timeout_seconds=600.0,
+        max_output_bytes=DEFAULT_MAX_OUTPUT_BYTES,
+        cancellation=cancellation,
     )
 
     stdout_json = None

@@ -2,7 +2,9 @@
 name = "syntara-step-types"
 version = "0.1.0"
 requires-python = ">=3.12,<3.15"
-dependencies = []
+dependencies = [
+    "syntara-plugin-sdk>=0.1.0a1",
+]
 
 [dependency-groups]
 dev = [
@@ -20,13 +22,13 @@ dev = [
 [tool.uv.workspace]
 members = ["script", "http-request"]
 
-[tool.uv.sources]
-syntara-plugin-sdk = { path = "../syntara-plugin-sdk/sdks/python/packages/sdk", editable = true }
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["script/tests", "http-request/tests"]
+testpaths = ["script/tests", "http-request/tests", "tests/integration"]
 addopts = "--import-mode=importlib"
+markers = [
+    "integration: integration tests requiring container runtime (deselect with '-m \"not integration\"')",
+]
 
 [tool.ruff]
 target-version = "py312"
