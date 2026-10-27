@@ -58,45 +58,46 @@ def _wait_ready(port: int, timeout: float = 30.0) -> None:
     deadline = time.monotonic() + timeout
     last_exc: Exception | None = None
     while time.monotonic() < deadline:
+        channel = grpc.insecure_channel(f"127.0.0.1:{port}")
         try:
-            channel = grpc.insecure_channel(f"127.0.0.1:{port}")
             stub = container_pb2_grpc.ContainerServiceStub(channel)
             stub.Health(container_pb2.HealthRequest(), timeout=2)
-            channel.close()
             return
         except grpc.RpcError as exc:
             last_exc = exc
             time.sleep(0.5)
         finally:
-            try:
-                channel.close()
-            except Exception:  # noqa: BLE001
-                pass
+            channel.close()
     raise TimeoutError(
         f"Container on port {port} did not become ready within {timeout}s: {last_exc}"
     )
 
 
-def _container_fixture(step: str):
-    """Build a session-scoped pytest fixture that manages a step container."""
-
-    @pytest.fixture(scope="session")
-    def _fixture():
-        port = _free_port()
-        name = _start_container(step, port)
-        channel: grpc.Channel | None = None
-        try:
-            _wait_ready(port)
-            channel = grpc.insecure_channel(f"127.0.0.1:{port}")
-            stub = container_pb2_grpc.ContainerServiceStub(channel)
-            yield stub
-        finally:
-            if channel is not None:
-                channel.close()
-            _stop_container(name)
-
-    return _fixture
+@pytest.fixture(scope="session")
+def script_stub() -> grpc.Channel:
+    port = _free_port()
+    name = _start_container("script", port)
+    channel: grpc.Channel | None = None
+    try:
+        _wait_ready(port)
+        channel = grpc.insecure_channel(f"127.0.0.1:{port}")
+        yield container_pb2_grpc.ContainerServiceStub(channel)
+    finally:
+        if channel is not None:
+            channel.close()
+        _stop_container(name)
 
 
-script_stub = _container_fixture("script")
-http_stub = _container_fixture("http-request")
+@pytest.fixture(scope="session")
+def http_stub() -> grpc.Channel:
+    port = _free_port()
+    name = _start_container("http-request", port)
+    channel: grpc.Channel | None = None
+    try:
+        _wait_ready(port)
+        channel = grpc.insecure_channel(f"127.0.0.1:{port}")
+        yield container_pb2_grpc.ContainerServiceStub(channel)
+    finally:
+        if channel is not None:
+            channel.close()
+        _stop_container(name)
