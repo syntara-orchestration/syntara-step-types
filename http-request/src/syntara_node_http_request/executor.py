@@ -216,6 +216,11 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
         )
     )
 
+    # Materialize the body before building the pinned request: redirect
+    # requests from httpx (response.next_request) carry an unread stream, and
+    # accessing .content on them raises RequestNotRead.
+    request.read()
+
     # Create new request with pinned URL
     new_request = httpx.Request(
         method=request.method,

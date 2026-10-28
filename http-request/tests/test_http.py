@@ -152,3 +152,35 @@ def test_non_http_scheme_rejected(step: HttpRequestStep, context: ExecutionConte
     with pytest.raises(ContainerInvocationError) as exc_info:
         step.run(HttpInput(url="ftp://example.com/file"), context)
     assert exc_info.value.code == FailureCode.POLICY_DENIED
+
+
+@respx.mock
+def test_follow_redirects_true(
+    step: HttpRequestStep, context: ExecutionContext, mock_dns
+) -> None:
+    # First host redirects; DNS pinning rewrites both hops to the mocked IP.
+    respx.get("https://example.com/start").mock(
+        return_value=httpx.Response(301, headers={"Location": "https://other.com/final"})
+    )
+    respx.get("https://93.184.216.34/start").mock(
+        return_value=httpx.Response(301, headers={"Location": "https://other.com/final"})
+    )
+    respx.get("https://other.com/final").mock(return_value=httpx.Response(200, text="done"))
+    respx.get("https://93.184.216.34/final").mock(return_value=httpx.Response(200, text="done"))
+    output = step.run(HttpInput(url="https://example.com/start", follow_redirects=True), context)
+    assert output.status_code == 200
+    assert output.body == "done"
+
+
+@respx.mock
+def test_follow_redirects_false(
+    step: HttpRequestStep, context: ExecutionContext, mock_dns
+) -> None:
+    respx.get("https://example.com/start").mock(
+        return_value=httpx.Response(301, headers={"Location": "https://other.com/final"})
+    )
+    respx.get("https://93.184.216.34/start").mock(
+        return_value=httpx.Response(301, headers={"Location": "https://other.com/final"})
+    )
+    output = step.run(HttpInput(url="https://example.com/start"), context)
+    assert output.status_code == 301
