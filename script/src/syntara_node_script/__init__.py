@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -19,6 +20,10 @@ from .executor import (
     ScriptTimeoutError,
     run_script_async,
 )
+
+# Hard admission limit: reserve 2 out of 10 gRPC threads for Cancel and Health RPCs.
+# Without this, 10 simultaneous Execute calls starve all control-plane operations.
+_EXECUTE_SEMAPHORE = threading.Semaphore(8)
 
 
 class ScriptInput(BaseModel):
@@ -45,6 +50,14 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
                 outcome="not_started",
             )
 
+        # Enforce admission limit so Cancel and Health RPCs always have threads available.
+        if not _EXECUTE_SEMAPHORE.acquire(blocking=True, timeout=2.0):
+            raise ContainerInvocationError(
+                FailureCode.UPSTREAM_TRANSIENT,
+                "Server busy: too many concurrent executions",
+                retryable=True,
+                outcome="not_started",
+            )
         try:
             result = asyncio.run(
                 run_script_async(
@@ -76,3 +89,5 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
                 retryable=False,  # Cancellation is NOT retryable
                 outcome="not_completed",
             ) from exc
+        finally:
+            _EXECUTE_SEMAPHORE.release()

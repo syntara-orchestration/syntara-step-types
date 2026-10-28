@@ -276,6 +276,14 @@ def _make_request_with_validated_redirects(
     """
     redirect_count = 0
 
+    # Track the logical origin (scheme, host, port) across hops.
+    # After DNS-pinning, request.url.host becomes the resolved IP, so we carry
+    # the logical origin separately to make correct same-origin credential decisions.
+    _initial = request.url
+    logical_scheme: str = _initial.scheme
+    logical_host: str = _initial.host
+    logical_port: int | None = _initial.port
+
     while True:
         # Pin DNS for this request if needed
         pinned_request = _pin_request_dns(request, pinned_hosts)
@@ -283,8 +291,7 @@ def _make_request_with_validated_redirects(
         # Send the request with streaming to avoid buffering
         response = client.send(pinned_request, stream=True)
 
-        # Force header read before accessing next_request (PR #8 review fix)
-        # This ensures the response is in a valid state for redirect processing
+        # Force header read before accessing next_request
         _ = response.status_code
         _ = response.headers
 
@@ -315,8 +322,21 @@ def _make_request_with_validated_redirects(
                 outcome="not_completed",
             )
 
-        # Validate redirect destination against SSRF policy and get pinned IP.
-        # Key by httpx-normalized hostname to match _pin_request_dns lookup.
+        # Determine the next logical origin from the Location header.
+        # For absolute redirects parse it directly; for relative redirects the
+        # scheme/host/port are inherited from the current logical origin.
+        location = response.headers.get("location", "")
+        if location.startswith(("http://", "https://")):
+            _next_logical = httpx.URL(location)
+            next_logical_scheme: str = _next_logical.scheme
+            next_logical_host: str = _next_logical.host
+            next_logical_port: int | None = _next_logical.port
+        else:
+            next_logical_scheme = logical_scheme
+            next_logical_host = logical_host
+            next_logical_port = logical_port
+
+        # Validate the redirect destination against SSRF policy and update pin map.
         next_url = str(next_request.url)
         _, pinned_ip = _validate_url_no_ssrf(next_url)
         if pinned_ip:
@@ -324,18 +344,27 @@ def _make_request_with_validated_redirects(
             if host_key:
                 pinned_hosts[host_key] = pinned_ip
 
-        # Restore credentials stripped by HTTPX due to IP/hostname origin mismatch.
-        # HTTPX computed next_request against the pinned IP URL, so it treated a
-        # same-hostname absolute redirect as cross-origin and stripped Authorization/Cookie.
-        # Compare the real (unpinned) hostnames to decide whether to re-add them.
-        current_host = httpx.URL(str(request.url)).host
-        next_host = httpx.URL(next_url).host
-        if current_host and next_host == current_host:
+        # Restore credentials stripped by HTTPX only when the redirect stays within
+        # the same logical origin (scheme + host + port). Checking scheme prevents
+        # forwarding credentials over plain HTTP; checking port prevents leaking them
+        # to a different service on the same host.
+        same_origin = (
+            next_logical_scheme == logical_scheme
+            and next_logical_host == logical_host
+            and next_logical_port == logical_port
+        )
+        if same_origin:
             for cred_header in ("authorization", "cookie"):
                 if cred_header in request.headers and cred_header not in next_request.headers:
                     next_request.headers[cred_header] = request.headers[cred_header]
 
         response.close()
+
+        # Advance logical origin for the next iteration
+        logical_scheme = next_logical_scheme
+        logical_host = next_logical_host
+        logical_port = next_logical_port
+
         request = next_request
 
 

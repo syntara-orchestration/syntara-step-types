@@ -98,7 +98,7 @@ def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceS
     )
     for event in http_stub.Execute(request, timeout=15):
         if event.HasField("failure"):
-            assert "POLICY_DENIED" in event.failure.code or event.failure.code
+            assert event.failure.code == "POLICY_DENIED"
             assert not event.failure.retryable
             return
         if event.HasField("result"):
