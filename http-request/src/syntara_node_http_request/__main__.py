@@ -20,15 +20,14 @@ from syntara_plugin.runtime import (
 
 from syntara_node_http_request import HttpRequestStep
 
-STEP_IDENTITY = "syntara.step.http-request:0.1.0"
+STEP_IDENTITY = "syntara.http-request.http-request"
 GRPC_ADDRESS = "0.0.0.0:50051"
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-
-    # Load the installed Step manifest
-    manifest_path = Path(__file__).parent / "manifest.yaml"
+def create_bindings(manifest_path: Path | None = None) -> StepBindings:
+    """Build the exact installed bindings used by the container entrypoint."""
+    if manifest_path is None:
+        manifest_path = Path(__file__).parent / "manifest.yaml"
     with manifest_path.open() as f:
         manifest_doc = yaml.safe_load(f)
 
@@ -45,7 +44,12 @@ def main() -> None:
     descriptor = StepDescriptor.for_installed_step(step, installed_step)
     bindings.bind(descriptor, step)
 
-    registry = step_registry_from_bindings(bindings)
+    return bindings
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+    registry = step_registry_from_bindings(create_bindings())
 
     # Reserve enough threads so Cancel and Health RPCs can always get a thread,
     # even when the maximum number of concurrent Execute calls are in flight.

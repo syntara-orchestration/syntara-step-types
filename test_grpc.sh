@@ -35,7 +35,7 @@ grpcurl -plaintext \
   -d "{
     \"invocation_id\": \"grpc-test-1\",
     \"workflow_run_id\": \"wf-grpc-1\",
-    \"step_revision_id\": \"syntara.step.script:0.1.0\",
+    \"step_revision_id\": \"syntara.script.script\",
     \"runtime_abi\": \"syntara.container/v1alpha1\",
     \"inputs_json\": \"$INPUTS\",
     \"runtime_context_json\": \"$RUNTIME_CTX\",
@@ -56,7 +56,7 @@ grpcurl -plaintext \
   -d "{
     \"invocation_id\": \"grpc-test-2\",
     \"workflow_run_id\": \"wf-grpc-2\",
-    \"step_revision_id\": \"syntara.step.script:0.1.0\",
+    \"step_revision_id\": \"syntara.script.script\",
     \"runtime_abi\": \"syntara.container/v1alpha1\",
     \"inputs_json\": \"$INPUTS\",
     \"runtime_context_json\": \"$RUNTIME_CTX\",
@@ -77,7 +77,7 @@ grpcurl -plaintext \
   -d "{
     \"invocation_id\": \"grpc-test-3\",
     \"workflow_run_id\": \"wf-grpc-3\",
-    \"step_revision_id\": \"syntara.step.script:0.1.0\",
+    \"step_revision_id\": \"syntara.script.script\",
     \"runtime_abi\": \"syntara.container/v1alpha1\",
     \"inputs_json\": \"$INPUTS\",
     \"runtime_context_json\": \"$RUNTIME_CTX\",

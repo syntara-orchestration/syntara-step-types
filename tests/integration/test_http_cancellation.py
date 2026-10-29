@@ -11,12 +11,8 @@ from unittest.mock import patch
 
 import grpc
 import pytest
-import yaml
-from syntara_node_http_request import HttpRequestStep
+from syntara_node_http_request.__main__ import STEP_IDENTITY, create_bindings
 from syntara_plugin.runtime import (
-    InstalledStepManifest,
-    StepBindings,
-    StepDescriptor,
     add_container_runtime_service,
     step_registry_from_bindings,
 )
@@ -50,15 +46,7 @@ def test_http_cancel_stops_io_and_keeps_control_rpcs_available():
     upstream_thread.start()
     url = f"http://upstream.example:{upstream.server_port}/"
 
-    step = HttpRequestStep()
-    manifest = yaml.safe_load(
-        (Path(__file__).resolve().parents[2] / "http-request/manifest.yaml").read_text()
-    )
-    installed = InstalledStepManifest.from_manifest(
-        step_identity="syntara.step.http-request:0.1.0", manifest=manifest, assets={}
-    )
-    bindings = StepBindings()
-    bindings.bind(StepDescriptor.for_installed_step(step, installed), step)
+    bindings = create_bindings(Path(__file__).resolve().parents[2] / "http-request/manifest.yaml")
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as dispatch:
         server = grpc.server(dispatch)
         add_container_runtime_service(server, step_registry_from_bindings(bindings))
@@ -78,7 +66,7 @@ def test_http_cancel_stops_io_and_keeps_control_rpcs_available():
                 request = container_pb2.ExecuteRequest(
                     invocation_id="http-cancel-regression",
                     workflow_run_id="wf-cancel",
-                    step_revision_id="syntara.step.http-request:0.1.0",
+                    step_revision_id=STEP_IDENTITY,
                     runtime_abi="syntara.container/v1alpha1",
                     inputs_json=json.dumps({"url": url}).encode(),
                     runtime_context_json=b"{}",

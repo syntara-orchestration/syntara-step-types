@@ -9,7 +9,7 @@ from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
 pytestmark = pytest.mark.integration
 
-_STEP_REVISION_ID = "syntara.step.http-request:0.1.0"
+_STEP_REVISION_ID = "syntara.http-request.http-request"
 _RUNTIME_ABI = "syntara.container/v1alpha1"
 
 

@@ -40,6 +40,9 @@ SAFE_ENV_ALLOWLIST: frozenset[str] = frozenset(
 # - Two streams (stdout + stderr) plus potential stdout_json duplication
 # Conservative limit: (1048576 - 100000 reserve) / 3.5 ≈ 270KB per stream
 DEFAULT_MAX_OUTPUT_BYTES = 276_480  # 270 KB per stream
+# Two streams x eight admitted invocations retain at most 16 MiB of raw output.
+# Decoding and JSON serialization require additional bounded working memory.
+MAX_CAPTURE_BYTES = 1_048_576  # 1 MiB per stream
 MAX_ENV_VAR_LENGTH = 32768
 SCRIPT_CLEANUP_TERMINATE_TIMEOUT = 1.0
 SCRIPT_CLEANUP_KILL_TIMEOUT = 0.5
@@ -209,6 +212,8 @@ async def _execute_script_common(
     max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
     cancellation: Any = None,
 ) -> dict[str, Any]:
+    if not 0 < max_output_bytes <= MAX_CAPTURE_BYTES:
+        raise ValueError(f"max_output_bytes must be between 1 and {MAX_CAPTURE_BYTES}")
     env = _prepare_script_env(environment)
     process = None
     process_group_id = None

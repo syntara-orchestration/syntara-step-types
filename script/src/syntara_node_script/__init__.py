@@ -16,6 +16,7 @@ from syntara_plugin.runtime import (
 
 from .executor import (
     DEFAULT_MAX_OUTPUT_BYTES,
+    MAX_CAPTURE_BYTES,
     ScriptCancelledError,
     ScriptExecutionError,
     ScriptTimeoutError,
@@ -34,8 +35,9 @@ class ScriptInput(BaseModel):
     max_output_bytes: int = Field(
         default=DEFAULT_MAX_OUTPUT_BYTES,
         gt=0,
+        le=MAX_CAPTURE_BYTES,
         description=(
-            "Maximum bytes captured per output stream (stdout and stderr). "
+            f"Maximum bytes captured per output stream (1 to {MAX_CAPTURE_BYTES}). "
             "Output exceeding this limit is truncated. "
             f"Defaults to {DEFAULT_MAX_OUTPUT_BYTES} bytes (~270 KB per stream). "
             "The combined serialized result must not exceed the 1 MiB SDK ABI limit."

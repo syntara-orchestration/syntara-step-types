@@ -12,7 +12,7 @@ from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
 pytestmark = pytest.mark.integration
 
-_STEP_REVISION_ID = "syntara.step.script:0.1.0"
+_STEP_REVISION_ID = "syntara.script.script"
 _RUNTIME_ABI = "syntara.container/v1alpha1"
 
 

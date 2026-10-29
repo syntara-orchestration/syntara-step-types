@@ -18,7 +18,9 @@ the JSON encoding.
 
 ## Step identity
 
-Each step is registered under a `step_identity` (e.g. `syntara.step.script:0.1.0`).
+Each step is registered under the identity produced by its compiled plugin target
+(e.g. `syntara.script.script`). The target version is carried separately and is
+not appended to this identity.
 The Execution Plane sends this string as `step_revision_id` in `ExecuteRequest`.
 The container's `StepRegistry` routes the request to the matching handler.
 

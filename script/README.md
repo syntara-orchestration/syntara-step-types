@@ -10,7 +10,7 @@ exit code. For Python scripts, the last line of stdout is parsed as JSON if vali
 | `language` | `python`\|`bash` | Yes | `python` | Script language |
 | `code` | string | Yes | — | Script source code |
 | `environment` | object | No | `{}` | Extra environment variables |
-| `max_output_bytes` | integer | No | `276480` | Bytes captured per stream before truncation; the complete result must fit within 1 MiB |
+| `max_output_bytes` | integer | No | `276480` | Bytes captured per stream before truncation (1–1048576); the complete result must also fit within 1 MiB |
 
 ## Outputs
 
