@@ -1,0 +1,32 @@
+apiVersion: syntara.io/v1alpha1
+kind: PluginBuildSettings
+manifest: plugin.yaml
+
+## Development defaults. Replace the registry values before publishing. Do not
+## put a registry password, token, or auth-file path in this file.
+registry:
+  origin: http://localhost:5000
+  artifactRepository: syntara/plugins/script
+  workloadRepository: syntara/workloads/script
+  catalogRepository: syntara/catalog-index
+  username: publisher
+  allowInsecureLoopbackHttp: true
+
+build:
+  artifactOutput: dist/script.oci.tar
+  workload:
+    engine: podman
+    context: ..
+    containerfile: Containerfile
+    tag: 0.1.0
+    platform: linux/amd64
+    imageId: script-runner
+
+publish:
+  channel: 0.1.0
+  updateCatalog: true
+
+catalog:
+  sourceId: syntara-catalog
+  channel: stable
+  expiresInHours: 168

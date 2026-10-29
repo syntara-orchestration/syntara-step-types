@@ -1,0 +1,15 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: script
+  version: 0.1.0
+  displayName: Script
+  description: Runs Python or Bash code in an isolated subprocess container.
+spec:
+  documentation:
+    path: README.md
+  workload:
+    image: script-runner
+  targets:
+    - manifest.yaml
