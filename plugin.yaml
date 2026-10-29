@@ -1,0 +1,15 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: http-request
+  version: 0.1.0
+  displayName: HTTP Request
+  description: Makes an outbound HTTP request from a container step.
+spec:
+  documentation:
+    path: http-request/README.md
+  workload:
+    image: http-request-runner
+  targets:
+    - http-request/manifest.yaml

@@ -30,6 +30,11 @@ spec:
           additionalProperties:
             type: string
           description: Environment variables passed to the script process.
+        max_output_bytes:
+          type: integer
+          minimum: 1
+          default: 276480
+          description: Maximum bytes captured per output stream (stdout and stderr). Output beyond this limit is truncated. Defaults to ~270 KB per stream; the combined serialized result must not exceed the 1 MiB SDK ABI limit.
   output:
     kind: inline
     value:
