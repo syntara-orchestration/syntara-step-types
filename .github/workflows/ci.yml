@@ -65,7 +65,7 @@ jobs:
         working-directory: step-types
         env:
           UV_PYTHON: ${{ matrix.python }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-python-${{ matrix.python }}
@@ -100,7 +100,7 @@ jobs:
         env:
           CONTAINER_ENGINE: docker
           TEST_TAG: integration-test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: integration-test-results
