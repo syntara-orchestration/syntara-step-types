@@ -16,7 +16,7 @@ build:
   artifactOutput: dist/script.oci.tar
   workload:
     engine: podman
-    context: .
+    context: ..
     containerfile: script/Containerfile
     tag: 0.1.0
     platform: linux/amd64

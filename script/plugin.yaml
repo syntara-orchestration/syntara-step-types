@@ -8,8 +8,8 @@ metadata:
   description: Runs Python or Bash code in an isolated subprocess container.
 spec:
   documentation:
-    path: script/README.md
+    path: README.md
   workload:
     image: script-runner
   targets:
-    - script/manifest.yaml
+    - manifest.yaml

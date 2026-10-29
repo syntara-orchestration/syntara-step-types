@@ -16,7 +16,7 @@ build:
   artifactOutput: dist/http-request.oci.tar
   workload:
     engine: podman
-    context: .
+    context: ..
     containerfile: http-request/Containerfile
     tag: 0.1.0
     platform: linux/amd64

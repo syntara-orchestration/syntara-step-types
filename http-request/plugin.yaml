@@ -8,8 +8,8 @@ metadata:
   description: Makes an outbound HTTP request from a container step.
 spec:
   documentation:
-    path: http-request/README.md
+    path: README.md
   workload:
     image: http-request-runner
   targets:
-    - http-request/manifest.yaml
+    - manifest.yaml
