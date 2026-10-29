@@ -58,3 +58,14 @@ or staged wheels.
 
 Extracted from `syntara-orchestration/syntara` (`backend/nodes`) and refactored to use
 the `syntara-plugin-sdk` SDK. Original source is Apache 2.0 licensed.
+
+## Konflux CI
+
+The `.tekton/syntara-step-types-tests-devel-pull-request.yaml` PipelineRun references
+`syntara-step-types-tests` from `ansible-automation-platform/aap-konflux-pipelines`.
+It runs quality checks, unit tests on Python 3.12–3.14, and container gRPC integration
+tests for pull requests targeting `devel`, and reports results to the PR.
+
+Publish the pipeline's `0.1` bundle before enabling this trigger, then pin its
+published digest in the bundle reference. See the pipeline README for tenant
+secrets, service-account requirements, and rollout order.
