@@ -313,6 +313,7 @@ async def run_script_async(
     language: str,
     code: str,
     environment: dict[str, str],
+    max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
     cancellation: Any = None,
 ) -> dict[str, Any]:
     """Execute a script and return a raw result dict.
@@ -324,6 +325,9 @@ async def run_script_async(
         language: Script language (python or bash)
         code: Script source code
         environment: Environment variables
+        max_output_bytes: Per-stream capture limit in bytes (stdout and stderr each).
+            Defaults to DEFAULT_MAX_OUTPUT_BYTES (~270 KB). Output beyond this is
+            truncated with a notice appended to stderr.
         cancellation: Cancellation event from ExecutionContext (checked periodically)
 
     Note:
@@ -352,7 +356,7 @@ async def run_script_async(
         command,
         environment,
         timeout_seconds=600.0,
-        max_output_bytes=DEFAULT_MAX_OUTPUT_BYTES,
+        max_output_bytes=max_output_bytes,
         cancellation=cancellation,
     )
 

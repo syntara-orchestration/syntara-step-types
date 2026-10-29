@@ -3,7 +3,7 @@
 
 set -e
 
-PROTO_PATH="../syntara-plugin-sdk/contracts/proto"
+PROTO_PATH=".venv/lib/python3.12/site-packages/syntara_plugin/contracts/proto"
 PROTO_FILE="syntara_plugin/runtime/protocol/container.proto"
 HOST="localhost:50051"
 SERVICE="syntara.container.v1alpha1.ContainerService"

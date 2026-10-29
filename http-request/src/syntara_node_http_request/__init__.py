@@ -30,7 +30,7 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
     """Make an outbound HTTP request and return the response as typed output."""
 
     def run(self, inputs: HttpInput, context: ExecutionContext) -> HttpOutput:
-        if not _EXECUTE_SEMAPHORE.acquire(blocking=True, timeout=2.0):
+        if not _EXECUTE_SEMAPHORE.acquire(blocking=False):
             raise ContainerInvocationError(
                 FailureCode.UPSTREAM_TRANSIENT,
                 "Server busy: too many concurrent executions",

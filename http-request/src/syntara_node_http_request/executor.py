@@ -258,6 +258,12 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
     return new_request
 
 
+def _origin(url: httpx.URL) -> tuple[str, str, int]:
+    """Return (scheme, host, effective_port) for same-origin comparisons."""
+    default_port = {"http": 80, "https": 443}[url.scheme]
+    return url.scheme, url.host, url.port or default_port
+
+
 def _make_request_with_validated_redirects(
     client: httpx.Client,
     request: httpx.Request,
@@ -266,7 +272,9 @@ def _make_request_with_validated_redirects(
 ) -> httpx.Response:
     """Make HTTP request with SSRF-validated redirects.
 
-    Uses HTTPX's next_request for proper credential stripping and 307/308 handling.
+    Keeps the logical (unpinned) URL in next_request so SSRF validation and
+    same-origin credential decisions always compare hostnames, not pinned IPs.
+    DNS pinning is applied by _pin_request_dns at send time each hop.
 
     Args:
         client: HTTPX client to use for requests
@@ -275,14 +283,7 @@ def _make_request_with_validated_redirects(
         pinned_hosts: Map of hostname -> IP to pin DNS and prevent rebinding
     """
     redirect_count = 0
-
-    # Track the logical origin (scheme, host, port) across hops.
-    # After DNS-pinning, request.url.host becomes the resolved IP, so we carry
-    # the logical origin separately to make correct same-origin credential decisions.
-    _initial = request.url
-    logical_scheme: str = _initial.scheme
-    logical_host: str = _initial.host
-    logical_port: int | None = _initial.port
+    logical_url = request.url
 
     while True:
         # Pin DNS for this request if needed
@@ -310,8 +311,8 @@ def _make_request_with_validated_redirects(
                 outcome="not_completed",
             )
 
-        # Get HTTPX's properly constructed next request
-        # This handles credential stripping, 307/308 method preservation, etc.
+        # Get HTTPX's properly constructed next request.
+        # This preserves 307/308 method/body and handles header stripping.
         next_request = response.next_request
         if next_request is None:
             response.close()
@@ -322,49 +323,42 @@ def _make_request_with_validated_redirects(
                 outcome="not_completed",
             )
 
-        # Determine the next logical origin from the Location header.
-        # For absolute redirects parse it directly; for relative redirects the
-        # scheme/host/port are inherited from the current logical origin.
-        location = response.headers.get("location", "")
-        if location.startswith(("http://", "https://")):
-            _next_logical = httpx.URL(location)
-            next_logical_scheme: str = _next_logical.scheme
-            next_logical_host: str = _next_logical.host
-            next_logical_port: int | None = _next_logical.port
-        else:
-            next_logical_scheme = logical_scheme
-            next_logical_host = logical_host
-            next_logical_port = logical_port
+        # Resolve the Location header against the current logical (unpinned) URL
+        # using HTTPX's URL parser so that scheme-relative ("//host/path"),
+        # uppercase-scheme ("HTTP://..."), and path-relative ("/path") Locations
+        # are all resolved correctly before the same-origin comparison.
+        next_url = httpx.URL(response.headers["location"])
+        if next_url.scheme and not next_url.host:
+            next_url = next_url.copy_with(host=logical_url.host)
+        if next_url.is_relative_url:
+            next_url = logical_url.join(next_url)
+        if logical_url.fragment and not next_url.fragment:
+            next_url = next_url.copy_with(fragment=logical_url.fragment)
 
-        # Validate the redirect destination against SSRF policy and update pin map.
-        next_url = str(next_request.url)
-        _, pinned_ip = _validate_url_no_ssrf(next_url)
+        # Validate redirect destination against SSRF policy and update pin map.
+        _, pinned_ip = _validate_url_no_ssrf(str(next_url))
         if pinned_ip:
-            host_key = httpx.URL(next_url).host
-            if host_key:
-                pinned_hosts[host_key] = pinned_ip
+            pinned_hosts[next_url.host] = pinned_ip
 
-        # Restore credentials stripped by HTTPX only when the redirect stays within
-        # the same logical origin (scheme + host + port). Checking scheme prevents
-        # forwarding credentials over plain HTTP; checking port prevents leaking them
-        # to a different service on the same host.
-        same_origin = (
-            next_logical_scheme == logical_scheme
-            and next_logical_host == logical_host
-            and next_logical_port == logical_port
-        )
-        if same_origin:
-            for cred_header in ("authorization", "cookie"):
-                if cred_header in request.headers and cred_header not in next_request.headers:
-                    next_request.headers[cred_header] = request.headers[cred_header]
+        # Manage credentials explicitly: strip on origin change, restore on same-origin.
+        # Comparing against logical_url (not the pinned-IP URL) prevents the pinned-IP
+        # host from being treated as a different origin than the original hostname.
+        same_origin = _origin(next_url) == _origin(logical_url)
+        for name in ("authorization", "cookie"):
+            if not same_origin:
+                next_request.headers.pop(name, None)
+            elif name in request.headers and name not in next_request.headers:
+                next_request.headers[name] = request.headers[name]
+
+        # Keep next_request URL logical (hostname, not pinned IP) so the next
+        # iteration's _pin_request_dns can apply a fresh pin.  Clear the old SNI
+        # override so it is set correctly for the new destination.
+        next_request.url = next_url
+        next_request.headers["host"] = next_url.netloc.decode("ascii")
+        next_request.extensions.pop("sni_hostname", None)
 
         response.close()
-
-        # Advance logical origin for the next iteration
-        logical_scheme = next_logical_scheme
-        logical_host = next_logical_host
-        logical_port = next_logical_port
-
+        logical_url = next_url
         request = next_request
 
 

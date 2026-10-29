@@ -15,6 +15,7 @@ from syntara_plugin.runtime import (
 )
 
 from .executor import (
+    DEFAULT_MAX_OUTPUT_BYTES,
     ScriptCancelledError,
     ScriptExecutionError,
     ScriptTimeoutError,
@@ -30,6 +31,16 @@ class ScriptInput(BaseModel):
     language: Literal["python", "bash"] = "python"
     code: str = Field(min_length=1)
     environment: dict[str, str] = Field(default_factory=dict)
+    max_output_bytes: int = Field(
+        default=DEFAULT_MAX_OUTPUT_BYTES,
+        gt=0,
+        description=(
+            "Maximum bytes captured per output stream (stdout and stderr). "
+            "Output exceeding this limit is truncated. "
+            f"Defaults to {DEFAULT_MAX_OUTPUT_BYTES} bytes (~270 KB per stream). "
+            "The combined serialized result must not exceed the 1 MiB SDK ABI limit."
+        ),
+    )
 
 
 class ScriptOutput(BaseModel):
@@ -51,7 +62,7 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
             )
 
         # Enforce admission limit so Cancel and Health RPCs always have threads available.
-        if not _EXECUTE_SEMAPHORE.acquire(blocking=True, timeout=2.0):
+        if not _EXECUTE_SEMAPHORE.acquire(blocking=False):
             raise ContainerInvocationError(
                 FailureCode.UPSTREAM_TRANSIENT,
                 "Server busy: too many concurrent executions",
@@ -64,6 +75,7 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
                     inputs.language,
                     inputs.code,
                     dict(inputs.environment),
+                    max_output_bytes=inputs.max_output_bytes,
                     cancellation=context.cancellation,
                 )
             )
