@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import socket
 import time
 from http import HTTPStatus
+from threading import Event
 from typing import Any
 from urllib.parse import parse_qsl, urlparse, urlsplit, urlunsplit
 
@@ -138,18 +140,18 @@ def _resolve_query_params(
     return clean, merged
 
 
-def _stream_response_body_limited(response: httpx.Response, max_bytes: int) -> bytes:
+async def _stream_response_body_limited(response: httpx.Response, max_bytes: int) -> bytes:
     """Stream response body with size limit enforced during reading."""
     chunks: list[bytes] = []
     total_read = 0
 
-    for chunk in response.iter_bytes(chunk_size=65536):
+    async for chunk in response.aiter_bytes(chunk_size=65536):
         chunk_size = len(chunk)
         if total_read + chunk_size > max_bytes:
             remaining = max_bytes - total_read
             if remaining > 0:
                 chunks.append(chunk[:remaining])
-            response.close()
+            await response.aclose()
             raise ContainerInvocationError(
                 FailureCode.POLICY_DENIED,
                 f"Response body exceeds {max_bytes} byte limit.",
@@ -162,9 +164,9 @@ def _stream_response_body_limited(response: httpx.Response, max_bytes: int) -> b
     return b"".join(chunks)
 
 
-def _bound_response_body(response: httpx.Response) -> Any:
+async def _bound_response_body(response: httpx.Response) -> Any:
     """Parse response body as JSON or text, enforcing size limit during streaming."""
-    content = _stream_response_body_limited(response, _MAX_RESPONSE_BYTES)
+    content = await _stream_response_body_limited(response, _MAX_RESPONSE_BYTES)
     try:
         return json.loads(content)
     except Exception:  # noqa: BLE001
@@ -225,156 +227,135 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
         )
     )
 
-    # Read request body before creating the new request.  Accessing request.content
-    # on an HTTPX Request that holds an unread stream (e.g. a redirect next_request)
-    # raises RequestNotRead; calling read() first materialises the bytes.
-    try:
-        body = request.content
-    except httpx.RequestNotRead:
-        request.read()
-        body = request.content
-
-    # Create new request with pinned URL
+    # Preserve the stream, including HTTPX's streamed 307/308 redirect bodies.
     new_request = httpx.Request(
         method=request.method,
         url=new_url_str,
-        headers=dict(request.headers),
-        content=body,
-        extensions=request.extensions,
+        headers=request.headers,
+        stream=request.stream,
+        extensions=dict(request.extensions),
     )
 
     # Set Host header to original hostname, preserving non-default ports.
     # HTTP/1.1 requires host:port when the port is non-standard.
     default_port = {"http": 80, "https": 443}.get(parsed.scheme, 0)
     if parsed.port and parsed.port != default_port:
-        new_request.headers["host"] = f"{hostname}:{parsed.port}"
+        new_request.headers["host"] = f"{url.raw_host.decode('ascii')}:{parsed.port}"
     else:
-        new_request.headers["host"] = hostname
+        new_request.headers["host"] = url.raw_host.decode("ascii")
 
     # For HTTPS, set SNI server_hostname extension
     if parsed.scheme == "https":
-        new_request.extensions["sni_hostname"] = hostname
+        new_request.extensions["sni_hostname"] = url.raw_host.decode("ascii")
 
     return new_request
 
 
 def _origin(url: httpx.URL) -> tuple[str, str, int]:
     """Return (scheme, host, effective_port) for same-origin comparisons."""
-    default_port = {"http": 80, "https": 443}[url.scheme]
+    default_port = {"http": 80, "https": 443}.get(url.scheme, 0)
     return url.scheme, url.host, url.port or default_port
 
 
-def _make_request_with_validated_redirects(
-    client: httpx.Client,
+class _PinnedTransport(httpx.AsyncBaseTransport):
+    """Pin connections without exposing IP URLs to HTTPX's cookies and redirects."""
+
+    def __init__(self) -> None:
+        # Separate pools prevent TLS connections being reused between logical
+        # origins that happen to resolve to the same IP address.
+        self._transports: dict[tuple[str, str, int], httpx.AsyncHTTPTransport] = {}
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        _, pinned_ip = _validate_url_no_ssrf(str(request.url))
+        pins = {request.url.host: pinned_ip} if pinned_ip else {}
+        if not pins:
+            # Only IP literals may be sent without a DNS pin.
+            ipaddress.ip_address(request.url.host)
+        origin = _origin(request.url)
+        transport = self._transports.get(origin)
+        if transport is None:
+            transport = httpx.AsyncHTTPTransport(trust_env=False)
+            self._transports[origin] = transport
+        return await transport.handle_async_request(_pin_request_dns(request, pins))
+
+    async def aclose(self) -> None:
+        for transport in self._transports.values():
+            await transport.aclose()
+
+
+async def _make_request_with_validated_redirects(
+    client: httpx.AsyncClient,
     request: httpx.Request,
     follow_redirects: bool,
-    pinned_hosts: dict[str, str],
 ) -> httpx.Response:
-    """Make HTTP request with SSRF-validated redirects.
-
-    Keeps the logical (unpinned) URL in next_request so SSRF validation and
-    same-origin credential decisions always compare hostnames, not pinned IPs.
-    DNS pinning is applied by _pin_request_dns at send time each hop.
-
-    Args:
-        client: HTTPX client to use for requests
-        request: Initial request to send
-        follow_redirects: Whether to follow redirect responses
-        pinned_hosts: Map of hostname -> IP to pin DNS and prevent rebinding
-    """
-    redirect_count = 0
-    logical_url = request.url
-
-    while True:
-        # Pin DNS for this request if needed
-        pinned_request = _pin_request_dns(request, pinned_hosts)
-
-        # Send the request with streaming to avoid buffering
-        response = client.send(pinned_request, stream=True)
-
-        # Force header read before accessing next_request
-        _ = response.status_code
-        _ = response.headers
-
-        # If not following redirects or not a redirect, return
-        if not follow_redirects or not response.is_redirect:
+    """Follow logical HTTPX redirects; the transport validates and pins every hop."""
+    explicit_cookie = request.headers.get("cookie")
+    for redirect_count in range(_MAX_REDIRECTS + 1):
+        response = await client.send(request, stream=True)
+        next_request = response.next_request
+        if not follow_redirects or next_request is None:
             return response
-
-        # Check redirect limit
-        redirect_count += 1
-        if redirect_count > _MAX_REDIRECTS:
-            response.close()
+        await response.aclose()
+        if redirect_count == _MAX_REDIRECTS:
             raise ContainerInvocationError(
                 FailureCode.UPSTREAM_TRANSIENT,
                 f"Too many redirects (>{_MAX_REDIRECTS})",
                 retryable=False,
                 outcome="not_completed",
             )
+        # Strip explicit credentials on any origin change, including HTTPS upgrades.
+        if _origin(next_request.url) != _origin(request.url):
+            explicit_cookie = None
+            for name in ("authorization", "cookie"):
+                next_request.headers.pop(name, None)
+        elif explicit_cookie is not None and "cookie" not in next_request.headers:
+            next_request.headers["cookie"] = explicit_cookie
+        request = next_request
+    raise AssertionError("unreachable redirect loop")
 
-        # Get HTTPX's properly constructed next request.
-        # This preserves 307/308 method/body and handles header stripping.
-        next_request = response.next_request
-        if next_request is None:
-            response.close()
+
+async def _wait_for_cancellation(cancellation: Event) -> None:
+    while not cancellation.is_set():
+        await asyncio.sleep(0.05)
+
+
+async def _execute_cancellable(inputs: HttpInput, cancellation: Event) -> HttpOutput:
+    execution = asyncio.create_task(_execute_http_request(inputs))
+    cancelled = asyncio.create_task(_wait_for_cancellation(cancellation))
+    try:
+        await asyncio.wait((execution, cancelled), return_when=asyncio.FIRST_COMPLETED)
+        if cancellation.is_set():
             raise ContainerInvocationError(
-                FailureCode.UPSTREAM_TRANSIENT,
-                "Redirect response missing or invalid Location header",
+                FailureCode.CANCELLED,
+                "HTTP request was cancelled.",
                 retryable=False,
                 outcome="not_completed",
             )
-
-        # Resolve the Location header against the current logical (unpinned) URL
-        # using HTTPX's URL parser so that scheme-relative ("//host/path"),
-        # uppercase-scheme ("HTTP://..."), and path-relative ("/path") Locations
-        # are all resolved correctly before the same-origin comparison.
-        next_url = httpx.URL(response.headers["location"])
-        if next_url.scheme and not next_url.host:
-            next_url = next_url.copy_with(host=logical_url.host)
-        if next_url.is_relative_url:
-            next_url = logical_url.join(next_url)
-        if logical_url.fragment and not next_url.fragment:
-            next_url = next_url.copy_with(fragment=logical_url.fragment)
-
-        # Validate redirect destination against SSRF policy and update pin map.
-        _, pinned_ip = _validate_url_no_ssrf(str(next_url))
-        if pinned_ip:
-            pinned_hosts[next_url.host] = pinned_ip
-
-        # Manage credentials explicitly: strip on origin change, restore on same-origin.
-        # Comparing against logical_url (not the pinned-IP URL) prevents the pinned-IP
-        # host from being treated as a different origin than the original hostname.
-        same_origin = _origin(next_url) == _origin(logical_url)
-        for name in ("authorization", "cookie"):
-            if not same_origin:
-                next_request.headers.pop(name, None)
-            elif name in request.headers and name not in next_request.headers:
-                next_request.headers[name] = request.headers[name]
-
-        # Keep next_request URL logical (hostname, not pinned IP) so the next
-        # iteration's _pin_request_dns can apply a fresh pin.  Clear the old SNI
-        # override so it is set correctly for the new destination.
-        next_request.url = next_url
-        next_request.headers["host"] = next_url.netloc.decode("ascii")
-        next_request.extensions.pop("sni_hostname", None)
-
-        response.close()
-        logical_url = next_url
-        request = next_request
+        return await execution
+    finally:
+        for task in (execution, cancelled):
+            task.cancel()
+        await asyncio.gather(execution, cancelled, return_exceptions=True)
 
 
-def execute_http_request(inputs: HttpInput) -> HttpOutput:
+def execute_http_request(inputs: HttpInput, cancellation: Event | None = None) -> HttpOutput:
+    """Run the async HTTP operation from the synchronous SDK execution hook."""
+    if cancellation is not None and cancellation.is_set():
+        raise ContainerInvocationError(
+            FailureCode.CANCELLED,
+            "HTTP request was cancelled before starting.",
+            retryable=False,
+            outcome="not_started",
+        )
+    if cancellation is None:
+        return asyncio.run(_execute_http_request(inputs))
+    return asyncio.run(_execute_cancellable(inputs, cancellation))
+
+
+async def _execute_http_request(inputs: HttpInput) -> HttpOutput:
     """Make a bounded, SSRF-safe HTTP request and return structured output."""
-    # Validate initial URL and get pinned IP to prevent DNS rebinding attacks
-    _, pinned_ip = _validate_url_no_ssrf(inputs.url)
     url, params = _resolve_query_params(inputs.url, dict(inputs.query_params))
     headers = dict(inputs.headers)
-
-    # Build pinned hosts map keyed by httpx-normalized hostname to match _pin_request_dns.
-    pinned_hosts: dict[str, str] = {}
-    if pinned_ip:
-        host_key = httpx.URL(inputs.url).host
-        if host_key:
-            pinned_hosts[host_key] = pinned_ip
 
     # Prepare request body
     json_body = inputs.body if isinstance(inputs.body, dict) else None
@@ -382,7 +363,7 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
 
     start = time.time()
     try:
-        with httpx.Client(trust_env=False) as client:
+        async with httpx.AsyncClient(transport=_PinnedTransport(), trust_env=False) as client:
             # Build initial request
             request = client.build_request(
                 method=inputs.method.value,
@@ -395,16 +376,18 @@ def execute_http_request(inputs: HttpInput) -> HttpOutput:
             )
 
             # Execute with validated redirects and streaming
-            response = _make_request_with_validated_redirects(
+            response = await _make_request_with_validated_redirects(
                 client=client,
                 request=request,
                 follow_redirects=inputs.follow_redirects,
-                pinned_hosts=pinned_hosts,
             )
 
             # Read response body INSIDE the client context to avoid "Bad file descriptor"
+            try:
+                body = await _bound_response_body(response)
+            finally:
+                await response.aclose()
             elapsed = time.time() - start
-            body = _bound_response_body(response)
             status_code = response.status_code
             response_headers = dict(response.headers)
             reason_phrase = response.reason_phrase

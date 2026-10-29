@@ -28,11 +28,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           path: step-types
-      - uses: actions/checkout@v4
-        with:
-          repository: syntara-orchestration/syntara-plugin-sdk
-          path: syntara-plugin-sdk
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -56,11 +51,6 @@ jobs:
         with:
           persist-credentials: false
           path: step-types
-      - uses: actions/checkout@v4
-        with:
-          repository: syntara-orchestration/syntara-plugin-sdk
-          path: syntara-plugin-sdk
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -91,11 +81,6 @@ jobs:
         with:
           persist-credentials: false
           path: step-types
-      - uses: actions/checkout@v4
-        with:
-          repository: syntara-orchestration/syntara-plugin-sdk
-          path: syntara-plugin-sdk
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -135,11 +120,6 @@ jobs:
         with:
           persist-credentials: false
           path: step-types
-      - uses: actions/checkout@v4
-        with:
-          repository: syntara-orchestration/syntara-plugin-sdk
-          path: syntara-plugin-sdk
-          persist-credentials: false
       - uses: astral-sh/setup-uv@v3
         with:
           version: ${{ env.UV_VERSION }}

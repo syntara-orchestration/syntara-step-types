@@ -17,7 +17,7 @@ build:
   workload:
     engine: podman
     context: ..
-    containerfile: http-request/Containerfile
+    containerfile: Containerfile
     tag: 0.1.0
     platform: linux/amd64
     imageId: http-request-runner

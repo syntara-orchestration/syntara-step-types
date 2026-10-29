@@ -1,7 +1,7 @@
 # Runtime and gRPC contract
 
 Step containers implement the `syntara.container.v1alpha1` ABI defined in the
-`syntara-plugin-runtime` SDK (`ContainerService` proto). Each container exposes
+`syntara-plugin-sdk` SDK (`ContainerService` proto). Each container exposes
 a gRPC server on port 50051 and can serve multiple concurrent invocations.
 
 | RPC | Behaviour |
@@ -38,6 +38,7 @@ Steps raise `ContainerInvocationError(FailureCode.*, ...)` for controlled failur
 | `UPSTREAM_TRANSIENT` | HTTP 429/502/503/504; network error | Yes |
 | `TIMEOUT` | Script or HTTP request timed out | Yes |
 | `POLICY_DENIED` | SSRF validation blocked the URL | No |
+| `CANCELLED` | Invocation cancelled; script process group or HTTP I/O stopped | No |
 | `INVALID_INPUT` | Input failed Pydantic model validation | No |
 
 ## Building and running locally
@@ -51,4 +52,4 @@ docker run --rm -p 50051:50051 localhost/syntara-node-script:local-test
 ```
 
 Inspect health or send an invocation using any gRPC client pointed at `localhost:50051`
-with the `syntara-plugin-runtime` proto (`container.proto`).
+with the `syntara-plugin-sdk` proto (`container.proto`).

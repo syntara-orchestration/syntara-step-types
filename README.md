@@ -1,7 +1,7 @@
 # Syntara step types
 
 Container-packaged workflow step types for the Syntara Execution Plane, built on the
-`syntara-plugin-runtime` SDK. Each step is a typed `TaskStep[TInput, TOutput]` served
+`syntara-plugin-sdk` SDK. Each step is a typed `ActionStep[TInput, TOutput]` served
 over the `ContainerService` gRPC ABI.
 
 ## Development
@@ -40,7 +40,7 @@ make push-node-images REGISTRY=quay.io/your-org TAG=0.1.0
 
 ## Architecture
 
-Steps implement `TaskStep[TInput, TOutput]` from `syntara-plugin-runtime`. The SDK
+Steps implement `ActionStep[TInput, TOutput]` from `syntara-plugin-sdk`. The SDK
 owns gRPC transport (`ContainerService`), input validation, and failure enveloping.
 Each container exposes port 50051 and serves multiple concurrent invocations.
 
@@ -48,11 +48,13 @@ See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS
 
 ## SDK dependency
 
-`syntara-plugin-runtime` is resolved from a local path by default (see `pyproject.toml`
-`[tool.uv.sources]`). Update the path or switch to a published package version once
-the SDK is released to a registry.
+Development installs resolve the published `syntara-plugin-sdk` package using `uv.lock`.
+Container builds install version `0.1.0a1` from the package registry by default;
+`--build-arg SDK_VERSION=...` selects another compatible release. Both the Makefile
+and SDK workload builds work from this repository without a sibling SDK checkout
+or staged wheels.
 
 ## Provenance
 
 Extracted from `syntara-orchestration/syntara` (`backend/nodes`) and refactored to use
-the `syntara-plugin-runtime` SDK. Original source is Apache 2.0 licensed.
+the `syntara-plugin-sdk` SDK. Original source is Apache 2.0 licensed.

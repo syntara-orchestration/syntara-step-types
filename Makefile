@@ -59,22 +59,11 @@ node-images:
 
 node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
-	mkdir -p .sdk-dist
-	@if [ -d "../syntara-plugin-sdk" ]; then \
-		SDK_PATH="../syntara-plugin-sdk"; \
-	else \
-		echo "Error: syntara-plugin-sdk not found at ../syntara-plugin-sdk"; \
-		exit 1; \
-	fi; \
-	cd $$SDK_PATH/sdks/python/packages/contracts && $(UV) build --out-dir $(CURDIR)/.sdk-dist && \
-	cd $(CURDIR) && \
-	cd $$SDK_PATH/sdks/python/packages/sdk && $(UV) build --out-dir $(CURDIR)/.sdk-dist
 	$(CONTAINER_ENGINE) build \
 		--build-arg SOURCE_URL="$(SOURCE_URL)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		-f $(NODE)/Containerfile \
-		-t $(REGISTRY)/syntara-node-$(NODE):$(TAG) . ; \
-	EXIT=$$? ; rm -rf .sdk-dist ; exit $$EXIT
+		-t $(REGISTRY)/syntara-node-$(NODE):$(TAG) .
 
 .PHONY: push-node-images push-node-image
 push-node-images:

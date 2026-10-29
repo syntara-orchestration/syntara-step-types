@@ -17,7 +17,7 @@ build:
   workload:
     engine: podman
     context: ..
-    containerfile: script/Containerfile
+    containerfile: Containerfile
     tag: 0.1.0
     platform: linux/amd64
     imageId: script-runner

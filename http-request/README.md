@@ -3,7 +3,9 @@
 Makes an outbound HTTP request from a container step. Returns the response status,
 body, headers, and elapsed time. SSRF protection validates all destination IPs
 (including hostname resolution and redirect targets) and blocks private, loopback,
-link-local, and reserved addresses.
+link-local, and reserved addresses. DNS pinning happens at the transport layer so
+redirects and cookies retain their logical hostnames. SDK cancellation stops
+in-flight requests and releases their execution capacity.
 
 ## Inputs
 

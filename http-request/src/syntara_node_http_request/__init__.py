@@ -38,6 +38,6 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
                 outcome="not_started",
             )
         try:
-            return execute_http_request(inputs)
+            return execute_http_request(inputs, context.cancellation)
         finally:
             _EXECUTE_SEMAPHORE.release()
