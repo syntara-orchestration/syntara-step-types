@@ -22,15 +22,15 @@ pytestmark = pytest.mark.integration
     ("step", "module_name", "inputs", "expected"),
     [
         (
-            "script",
-            "syntara_node_script.__main__",
-            {"language": "python", "code": 'print("dispatched")'},
+            "script-python",
+            "syntara_node_script.python",
+            {"code": 'print("dispatched")'},
             {"stdout": "dispatched\n"},
         ),
         (
-            "script",
-            "syntara_node_script.__main__",
-            {"language": "bash", "code": "printf dispatched"},
+            "script-bash",
+            "syntara_node_script.bash",
+            {"code": "printf dispatched"},
             {"stdout": "dispatched"},
         ),
         (
@@ -71,7 +71,7 @@ def test_execute_using_compiled_plugin_target(step, module_name, inputs, expecte
                     in stub.Health(container_pb2.HealthRequest(), timeout=1).step_revision_ids
                 )
                 request = container_pb2.ExecuteRequest(
-                    invocation_id=f"compiled-{step}-{inputs.get('language', 'http')}",
+                    invocation_id=f"compiled-{step}",
                     workflow_run_id="wf-compiled-target",
                     step_revision_id=target["identity"],
                     runtime_abi="syntara.container/v1alpha1",

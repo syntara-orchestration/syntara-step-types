@@ -6,7 +6,7 @@ import pytest
 from syntara_plugin.sdk.settings import load_settings
 
 
-@pytest.mark.parametrize("step", ["script", "http-request"])
+@pytest.mark.parametrize("step", ["script-python", "script-bash", "http-request"])
 def test_workload_paths_resolve_from_settings_directory(step):
     root = Path(__file__).resolve().parents[2]
     settings = load_settings(explicit_path=root / step / "syntara-plugin.yaml", manifest=None)
@@ -20,7 +20,8 @@ def test_workload_paths_resolve_from_settings_directory(step):
 @pytest.mark.parametrize(
     ("step", "module_name"),
     [
-        ("script", "syntara_node_script.__main__"),
+        ("script-python", "syntara_node_script.python"),
+        ("script-bash", "syntara_node_script.bash"),
         ("http-request", "syntara_node_http_request.__main__"),
     ],
 )

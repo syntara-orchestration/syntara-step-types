@@ -21,11 +21,11 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["script", "http-request"]
+members = ["script-runtime", "http-request"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["script/tests", "http-request/tests", "tests/integration"]
+testpaths = ["script-runtime/tests", "http-request/tests", "tests/integration"]
 addopts = "--import-mode=importlib"
 markers = [
     "integration: integration tests requiring container runtime (deselect with '-m \"not integration\"')",

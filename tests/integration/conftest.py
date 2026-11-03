@@ -7,6 +7,7 @@ import socket
 import subprocess
 import time
 import uuid
+from collections.abc import Iterator
 
 import grpc
 import pytest
@@ -73,10 +74,9 @@ def _wait_ready(port: int, timeout: float = 30.0) -> None:
     )
 
 
-@pytest.fixture(scope="session")
-def script_stub() -> grpc.Channel:
+def _script_stub(step: str) -> Iterator[container_pb2_grpc.ContainerServiceStub]:
     port = _free_port()
-    name = _start_container("script", port)
+    name = _start_container(step, port)
     channel: grpc.Channel | None = None
     try:
         _wait_ready(port)
@@ -86,6 +86,16 @@ def script_stub() -> grpc.Channel:
         if channel is not None:
             channel.close()
         _stop_container(name)
+
+
+@pytest.fixture(scope="session")
+def python_script_stub() -> Iterator[container_pb2_grpc.ContainerServiceStub]:
+    yield from _script_stub("script-python")
+
+
+@pytest.fixture(scope="session")
+def bash_script_stub() -> Iterator[container_pb2_grpc.ContainerServiceStub]:
+    yield from _script_stub("script-bash")
 
 
 @pytest.fixture(scope="session")

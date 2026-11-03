@@ -1,13 +1,18 @@
-"""Tests for ScriptStep using the syntara-plugin-contracts runtime."""
+"""Tests for the Python and Bash script plugin steps."""
 
 import pytest
-from syntara_node_script import ScriptInput, ScriptStep
+from syntara_node_script import BashScriptStep, PythonScriptStep, ScriptInput
 from syntara_plugin.runtime import ExecutionContext, FailureCode, StepFailure
 
 
 @pytest.fixture
-def step() -> ScriptStep:
-    return ScriptStep()
+def python_step() -> PythonScriptStep:
+    return PythonScriptStep()
+
+
+@pytest.fixture
+def bash_step() -> BashScriptStep:
+    return BashScriptStep()
 
 
 @pytest.fixture
@@ -15,64 +20,73 @@ def context() -> ExecutionContext:
     return ExecutionContext(invocation_id="test-invocation-1")
 
 
-def test_python_print(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(ScriptInput(language="python", code='print("hello")'), context)
+def test_python_print(python_step: PythonScriptStep, context: ExecutionContext) -> None:
+    output = python_step.run(ScriptInput(code='print("hello")'), context)
     assert output.return_code == 0
     assert output.stdout == "hello\n"
 
 
-def test_bash_printf(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(ScriptInput(language="bash", code="printf hello"), context)
+def test_bash_printf(bash_step: BashScriptStep, context: ExecutionContext) -> None:
+    output = bash_step.run(ScriptInput(code="printf hello"), context)
     assert output.return_code == 0
     assert output.stdout == "hello"
 
 
-def test_python_json_output(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(
-        ScriptInput(language="python", code='import json; print(json.dumps({"x": 1}))'),
+def test_python_json_output(python_step: PythonScriptStep, context: ExecutionContext) -> None:
+    output = python_step.run(
+        ScriptInput(code='import json; print(json.dumps({"x": 1}))'),
         context,
     )
     assert output.return_code == 0
     assert output.stdout_json == {"x": 1}
 
 
-def test_nonzero_exit_raises(step: ScriptStep, context: ExecutionContext) -> None:
+def test_nonzero_exit_raises(bash_step: BashScriptStep, context: ExecutionContext) -> None:
     with pytest.raises(StepFailure) as exc_info:
-        step.run(ScriptInput(language="bash", code="exit 3"), context)
+        bash_step.run(ScriptInput(code="exit 3"), context)
     assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
     assert not exc_info.value.retryable
 
 
-def test_environment_variables(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(
-        ScriptInput(language="bash", code="printf $HELLO", environment={"HELLO": "world"}),
+def test_environment_variables(bash_step: BashScriptStep, context: ExecutionContext) -> None:
+    output = bash_step.run(
+        ScriptInput(code="printf $HELLO", environment={"HELLO": "world"}),
         context,
     )
     assert output.stdout == "world"
 
 
-def test_python_stderr(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(
-        ScriptInput(language="python", code='import sys; sys.stderr.write("err\\n")'),
+def test_python_stderr(python_step: PythonScriptStep, context: ExecutionContext) -> None:
+    output = python_step.run(
+        ScriptInput(code='import sys; sys.stderr.write("err\\n")'),
         context,
     )
     assert output.return_code == 0
     assert "err" in output.stderr
 
 
-def test_bash_stderr_on_error(step: ScriptStep, context: ExecutionContext) -> None:
+def test_bash_stderr_on_error(bash_step: BashScriptStep, context: ExecutionContext) -> None:
     with pytest.raises(StepFailure) as exc_info:
-        step.run(ScriptInput(language="bash", code="echo oops >&2; exit 1"), context)
+        bash_step.run(ScriptInput(code="echo oops >&2; exit 1"), context)
     assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
     assert "1" in exc_info.value.error_message
 
 
-def test_python_integer_json_precision(step: ScriptStep, context: ExecutionContext) -> None:
-    output = step.run(
-        ScriptInput(language="python", code='print(\'{"id":1152921504606846977,"empty":null}\')'),
+def test_python_integer_json_precision(
+    python_step: PythonScriptStep, context: ExecutionContext
+) -> None:
+    output = python_step.run(
+        ScriptInput(code='print(\'{"id":1152921504606846977,"empty":null}\')'),
         context,
     )
     assert output.stdout_json == {"id": 1152921504606846977, "empty": None}
+
+
+def test_script_language_is_fixed_by_plugin() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ScriptInput(code="printf hello", language="bash")
 
 
 @pytest.mark.parametrize("limit", [0, 1_048_577, 1_073_741_824])
@@ -83,13 +97,13 @@ def test_capture_limits_rejected_by_model_and_installed_manifest(limit, context)
     import yaml
     from jsonschema import Draft202012Validator
     from pydantic import ValidationError
-    from syntara_node_script.__main__ import STEP_IDENTITY, create_bindings
+    from syntara_node_script.python import STEP_IDENTITY, create_bindings
     from syntara_plugin.runtime import StepExecutor
 
-    raw = {"language": "python", "code": 'print("unused")', "max_output_bytes": limit}
+    raw = {"code": 'print("unused")', "max_output_bytes": limit}
     with pytest.raises(ValidationError):
         ScriptInput(**raw)
-    manifest_path = Path(__file__).resolve().parents[1] / "manifest.yaml"
+    manifest_path = Path(__file__).resolve().parents[2] / "script-python" / "manifest.yaml"
     schema = yaml.safe_load(manifest_path.read_text())["spec"]["input"]["value"]
     assert list(Draft202012Validator(schema).iter_errors(raw))
     binding = create_bindings(manifest_path).binding(STEP_IDENTITY)
@@ -103,12 +117,12 @@ def test_capture_limits_rejected_by_model_and_installed_manifest(limit, context)
 def test_capture_boundaries_are_accepted(limit, context):
     from pathlib import Path
 
-    from syntara_node_script.__main__ import STEP_IDENTITY, create_bindings
+    from syntara_node_script.bash import STEP_IDENTITY, create_bindings
     from syntara_plugin.runtime import StepExecutor
 
-    raw = {"language": "bash", "code": "printf x", "max_output_bytes": limit}
+    raw = {"code": "printf x", "max_output_bytes": limit}
     assert ScriptInput(**raw).max_output_bytes == limit
-    manifest_path = Path(__file__).resolve().parents[1] / "manifest.yaml"
+    manifest_path = Path(__file__).resolve().parents[2] / "script-bash" / "manifest.yaml"
     binding = create_bindings(manifest_path).binding(STEP_IDENTITY)
     result = StepExecutor(binding).execute(raw, context)
     assert result.status == 0

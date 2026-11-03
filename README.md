@@ -22,14 +22,17 @@ CI runs tests on Python 3.12–3.14.
 | Step | Folder | Image suffix |
 | --- | --- | --- |
 | HTTP request | `http-request/` | `syntara-node-http-request` |
-| Script (Python and Bash) | `script/` | `syntara-node-script` |
+| Python script | `script-python/` | `syntara-node-script-python` |
+| Bash script | `script-bash/` | `syntara-node-script-bash` |
 
-Each folder contains a `Containerfile`, SDK manifest, example inputs, and tests.
-Build from the repository root so the workspace packages are resolved correctly:
+Each plugin folder contains its own `Containerfile`, SDK manifest, and example
+input. Shared script execution code lives in `script-runtime/`. Build from the
+repository root:
 
 ```bash
 make node-images CONTAINER_ENGINE=docker TAG=local-test
-make node-image NODE=script CONTAINER_ENGINE=docker TAG=local-test
+make node-image NODE=script-python CONTAINER_ENGINE=docker TAG=local-test
+make node-image NODE=script-bash CONTAINER_ENGINE=docker TAG=local-test
 ```
 
 Podman is the default engine. Configure `REGISTRY` and `TAG` when publishing:

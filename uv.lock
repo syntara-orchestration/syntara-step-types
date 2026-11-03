@@ -5,7 +5,7 @@ requires-python = ">=3.12, <3.15"
 [manifest]
 members = [
     "syntara-node-http-request",
-    "syntara-node-script",
+    "syntara-node-script-runtime",
     "syntara-step-types",
 ]
 
@@ -821,9 +821,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "syntara-node-script"
+name = "syntara-node-script-runtime"
 version = "0.1.0"
-source = { editable = "script" }
+source = { editable = "script-runtime" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },

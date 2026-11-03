@@ -4,14 +4,14 @@ WORKDIR /app
 FROM base AS builder
 # renovate: datasource=pypi depName=syntara-plugin-contracts
 ARG CONTRACTS_VERSION=0.1.0a2
-COPY script/pyproject.toml /app/pyproject.toml
-COPY script/manifest.yaml /app/manifest.yaml
-COPY script/src /app/src
-# Resolve the published runtime contracts and all step dependencies in a clean build context.
+COPY script-runtime/pyproject.toml /app/pyproject.toml
+COPY script-python/manifest.yaml /app/manifest.yaml
+COPY script-runtime/src /app/src
 RUN pip install --no-cache-dir "syntara-plugin-contracts==${CONTRACTS_VERSION}" .
 
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
 COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app/manifest.yaml /app/manifest.yaml
 EXPOSE 50051
-ENTRYPOINT ["python", "-m", "syntara_node_script"]
+ENTRYPOINT ["python", "-m", "syntara_node_script.python"]

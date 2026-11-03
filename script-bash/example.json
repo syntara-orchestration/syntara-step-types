@@ -1,0 +1,4 @@
+{
+  "code": "printf 'hello from bash\\n'",
+  "environment": {}
+}

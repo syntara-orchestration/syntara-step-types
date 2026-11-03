@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Simple test client for calling containerized steps via gRPC.
 
-This script demonstrates how to call the actual script and HTTP request containers
-without integrating into Syntara's activity system yet.
+This script demonstrates how to call the Python script, Bash script, and HTTP
+request containers without integrating into Syntara's activity system yet.
 
 Usage:
     # Test script step
@@ -69,7 +69,7 @@ async def call_script_step(
     Args:
         host: Container host
         port: Container port
-        language: Script language (python or bash)
+        language: Selects the Python or Bash plugin container
         code: Script code to execute
         environment: Environment variables
         timeout: Timeout in seconds
@@ -81,11 +81,11 @@ async def call_script_step(
     from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
     # Prepare inputs
-    inputs = {
-        "language": language,
-        "code": code,
-        "environment": environment or {},
-    }
+    inputs = {"code": code, "environment": environment or {}}
+    step_revision_id = {
+        "python": "syntara.script-python.script-python",
+        "bash": "syntara.script-bash.script-bash",
+    }[language]
 
     inputs_json = json.dumps(inputs).encode("utf-8")
     runtime_context_json = json.dumps({}).encode("utf-8")
@@ -95,7 +95,7 @@ async def call_script_step(
     request = container_pb2.ExecuteRequest(
         invocation_id="test-script-001",
         workflow_run_id="test-wf-001",
-        step_revision_id="syntara.script.script",
+        step_revision_id=step_revision_id,
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=inputs_json,
         runtime_context_json=runtime_context_json,
@@ -253,6 +253,7 @@ async def test_script_examples():
 
     # Health check
     await call_health_check("localhost", 50051)
+    await call_health_check("localhost", 50052)
 
     # Example 1: Simple Python print
     print("\nExample 1: Python Print")
@@ -265,6 +266,7 @@ async def test_script_examples():
     print("\nExample 2: Bash Echo")
     await call_script_step(
         language="bash",
+        port=50052,
         code='echo "Hello from bash"',
     )
 

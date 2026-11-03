@@ -1,4 +1,5 @@
-NODES := http-request script
+NODES := http-request script-python script-bash
+PYTHON_PACKAGES := http-request script-runtime
 CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= dev
@@ -24,7 +25,7 @@ format:
 .PHONY: typecheck
 typecheck:
 	$(UV) run --frozen --all-packages mypy --config-file pyproject.toml \
-		$(addsuffix /src,$(NODES))
+		$(addsuffix /src,$(PYTHON_PACKAGES))
 
 .PHONY: test
 test:

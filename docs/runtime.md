@@ -19,8 +19,8 @@ the JSON encoding.
 ## Step identity
 
 Each step is registered under the identity produced by its compiled plugin target
-(e.g. `syntara.script.script`). The target version is carried separately and is
-not appended to this identity.
+(e.g. `syntara.script-python.script-python`). The target version is carried separately
+and is not appended to this identity.
 The Execution Plane sends this string as `step_revision_id` in `ExecuteRequest`.
 The container's `StepRegistry` routes the request to the matching handler.
 
@@ -48,11 +48,11 @@ as a `Result` with a nonzero `status_code` and structured `error_result_json`. T
 ## Building and running locally
 
 ```bash
-# Build both images (from repo root)
+# Build all workload images (from repo root)
 make node-images CONTAINER_ENGINE=docker TAG=local-test
 
-# Run the script step container
-docker run --rm -p 50051:50051 localhost/syntara-node-script:local-test
+# Run a Python script step container
+docker run --rm -p 50051:50051 localhost/syntara-node-script-python:local-test
 ```
 
 Inspect health or send an invocation using any gRPC client pointed at `localhost:50051`
