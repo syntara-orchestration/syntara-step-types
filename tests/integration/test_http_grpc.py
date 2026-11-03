@@ -105,7 +105,7 @@ def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceS
             assert event.result.status_code != 0
             error = json.loads(event.result.error_result_json)
             assert error["code"] == "POLICY_DENIED"
-            assert error["category"] == "POLICY"
+            assert error["category"] == "policy"
             assert not error["retryable"]
             return
         if event.HasField("failure"):

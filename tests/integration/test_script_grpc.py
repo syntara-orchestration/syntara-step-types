@@ -105,7 +105,7 @@ def test_script_failure_handling(script_stub: container_pb2_grpc.ContainerServic
             assert event.result.status_code != 0
             error = json.loads(event.result.error_result_json)
             assert error["code"] == "REMOTE_REJECTED"
-            assert error["category"] == "BUSINESS"
+            assert error["category"] == "business"
             assert not error["retryable"]
             return
         if event.HasField("failure"):
@@ -173,7 +173,7 @@ def test_admission_control_busy_and_control_rpcs(
                 error = json.loads(event.result.error_result_json)
                 elapsed = time.monotonic() - busy_start
                 assert error["code"] == "UPSTREAM_TRANSIENT"
-                assert error["category"] == "DEPENDENCY"
+                assert error["category"] == "dependency"
                 assert error["retryable"], "Busy rejection must be retryable"
                 assert elapsed < _CONTROL_DEADLINE, (
                     f"Busy rejection took {elapsed:.3f}s — dispatch thread was blocked"
