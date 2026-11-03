@@ -30,6 +30,7 @@ def test_bash_printf(bash_step: BashScriptStep, context: ExecutionContext) -> No
     output = bash_step.run(ScriptInput(code="printf hello"), context)
     assert output.return_code == 0
     assert output.stdout == "hello"
+    assert "stdout_json" not in output.model_dump()
 
 
 def test_python_json_output(python_step: PythonScriptStep, context: ExecutionContext) -> None:
@@ -42,8 +43,9 @@ def test_python_json_output(python_step: PythonScriptStep, context: ExecutionCon
 
 
 def test_nonzero_exit_raises(bash_step: BashScriptStep, context: ExecutionContext) -> None:
+    inputs = ScriptInput(code="exit 3")
     with pytest.raises(StepFailure) as exc_info:
-        bash_step.run(ScriptInput(code="exit 3"), context)
+        bash_step.run(inputs, context)
     assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
     assert not exc_info.value.retryable
 
@@ -66,8 +68,9 @@ def test_python_stderr(python_step: PythonScriptStep, context: ExecutionContext)
 
 
 def test_bash_stderr_on_error(bash_step: BashScriptStep, context: ExecutionContext) -> None:
+    inputs = ScriptInput(code="echo oops >&2; exit 1")
     with pytest.raises(StepFailure) as exc_info:
-        bash_step.run(ScriptInput(code="echo oops >&2; exit 1"), context)
+        bash_step.run(inputs, context)
     assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
     assert "1" in exc_info.value.error_message
 

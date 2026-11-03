@@ -323,7 +323,7 @@ async def run_script_async(
 ) -> dict[str, Any]:
     """Execute a script and return a raw result dict.
 
-    Returns keys: return_code, stdout, stderr, stdout_json.
+    Returns return_code, stdout, and stderr, with stdout_json for Python scripts.
     Raises ScriptExecutionError or ScriptTimeoutError on failure.
 
     Args:
@@ -365,17 +365,18 @@ async def run_script_async(
         cancellation=cancellation,
     )
 
-    stdout_json = None
-    if language == "python" and result["stdout"].strip():
-        with contextlib.suppress(json.JSONDecodeError):
-            stdout_json = json.loads(result["stdout"])
-        if stdout_json is None:
-            lines = [line for line in result["stdout"].strip().split("\n") if line.strip()]
-            if lines:
-                with contextlib.suppress(json.JSONDecodeError):
-                    stdout_json = json.loads(lines[-1])
-
-    final_result = {**result, "stdout_json": stdout_json}
+    final_result = result
+    if language == "python":
+        stdout_json = None
+        if result["stdout"].strip():
+            with contextlib.suppress(json.JSONDecodeError):
+                stdout_json = json.loads(result["stdout"])
+            if stdout_json is None:
+                lines = [line for line in result["stdout"].strip().split("\n") if line.strip()]
+                if lines:
+                    with contextlib.suppress(json.JSONDecodeError):
+                        stdout_json = json.loads(lines[-1])
+        final_result = {**result, "stdout_json": stdout_json}
 
     # Validate complete serialized result size to prevent SDK ABI_VIOLATION (PR #8 review fix)
     # Use actual serialization instead of estimation to:

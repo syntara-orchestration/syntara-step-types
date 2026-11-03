@@ -48,6 +48,8 @@ class ScriptInput(BaseModel):
 
 
 class ScriptOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     return_code: int
     stdout: str
     stderr: str

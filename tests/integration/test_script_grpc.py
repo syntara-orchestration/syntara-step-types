@@ -70,6 +70,7 @@ def test_bash_echo(bash_script_stub: container_pb2_grpc.ContainerServiceStub) ->
     )
     assert result["return_code"] == 0
     assert "hello from bash" in result["stdout"]
+    assert "stdout_json" not in result
 
 
 def test_environment_variables(python_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
@@ -81,6 +82,19 @@ def test_environment_variables(python_script_stub: container_pb2_grpc.ContainerS
     )
     assert result["return_code"] == 0
     assert "hello-env" in result["stdout"]
+
+
+def test_bash_environment_variables(
+    bash_script_stub: container_pb2_grpc.ContainerServiceStub,
+) -> None:
+    result = _execute(
+        bash_script_stub,
+        step_revision_id=_BASH_STEP_REVISION_ID,
+        code='printf "%s" "$MY_VAR"',
+        environment={"MY_VAR": "hello-env"},
+    )
+    assert result["return_code"] == 0
+    assert result["stdout"] == "hello-env"
 
 
 def test_json_output_parsing(python_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
@@ -119,23 +133,26 @@ def test_script_failure_handling(
     pytest.fail("Execute stream closed without an error result")
 
 
-def test_admission_control_busy_and_control_rpcs(
-    python_script_stub: container_pb2_grpc.ContainerServiceStub,
+def _assert_admission_control_busy_and_control_rpcs(
+    stub: container_pb2_grpc.ContainerServiceStub,
+    *,
+    step_revision_id: str,
+    script_code: str,
+    invocation_prefix: str,
 ) -> None:
-    """Regression: 8 concurrent executions exhaust permits; 9th returns busy immediately;
-    Health and Cancel remain available under full load (Aaron review finding)."""
+    """Verify a plugin container enforces its limit and keeps control RPCs available."""
     _HOLD_SECONDS = 30
     _PERMIT_COUNT = 8
     _CONTROL_DEADLINE = 0.5  # seconds — Control RPCs must respond within this
 
-    hold_ids = [f"admission-hold-{i:03d}" for i in range(_PERMIT_COUNT)]
-    inputs = json.dumps({"code": f"import time; time.sleep({_HOLD_SECONDS})"}).encode()
+    hold_ids = [f"{invocation_prefix}-admission-hold-{i:03d}" for i in range(_PERMIT_COUNT)]
+    inputs = json.dumps({"code": script_code}).encode()
 
     def _hold_open(inv_id: str) -> str:
         req = container_pb2.ExecuteRequest(
             invocation_id=inv_id,
-            workflow_run_id="wf-admission",
-            step_revision_id=_PYTHON_STEP_REVISION_ID,
+            workflow_run_id=f"wf-admission-{invocation_prefix}",
+            step_revision_id=step_revision_id,
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,
             runtime_context_json=b"{}",
@@ -143,7 +160,7 @@ def test_admission_control_busy_and_control_rpcs(
             timeout_seconds=_HOLD_SECONDS + 5,
         )
         try:
-            for event in python_script_stub.Execute(req, timeout=_HOLD_SECONDS + 5):
+            for event in stub.Execute(req, timeout=_HOLD_SECONDS + 5):
                 if event.HasField("result") and event.result.status_code:
                     return json.loads(event.result.error_result_json)["code"]
                 if event.HasField("failure"):
@@ -160,9 +177,9 @@ def test_admission_control_busy_and_control_rpcs(
 
         # --- Excess Execute must be rejected immediately as busy ---
         busy_req = container_pb2.ExecuteRequest(
-            invocation_id="admission-excess-001",
-            workflow_run_id="wf-admission",
-            step_revision_id=_PYTHON_STEP_REVISION_ID,
+            invocation_id=f"{invocation_prefix}-admission-excess-001",
+            workflow_run_id=f"wf-admission-{invocation_prefix}",
+            step_revision_id=step_revision_id,
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,
             runtime_context_json=b"{}",
@@ -171,7 +188,7 @@ def test_admission_control_busy_and_control_rpcs(
         )
         busy_start = time.monotonic()
         busy_seen = False
-        for event in python_script_stub.Execute(busy_req, timeout=30):
+        for event in stub.Execute(busy_req, timeout=30):
             if event.HasField("result"):
                 assert event.result.status_code != 0, "Busy request unexpectedly succeeded"
                 error = json.loads(event.result.error_result_json)
@@ -188,7 +205,7 @@ def test_admission_control_busy_and_control_rpcs(
 
         # --- Health must respond promptly under full load ---
         health_start = time.monotonic()
-        health = python_script_stub.Health(container_pb2.HealthRequest(), timeout=_CONTROL_DEADLINE)
+        health = stub.Health(container_pb2.HealthRequest(), timeout=_CONTROL_DEADLINE)
         health_elapsed = time.monotonic() - health_start
         assert health.ready, "Health returned not-ready under load"
         assert health_elapsed < _CONTROL_DEADLINE, (
@@ -197,7 +214,7 @@ def test_admission_control_busy_and_control_rpcs(
 
         # --- Cancel must be accepted promptly for an in-flight invocation ---
         cancel_start = time.monotonic()
-        python_script_stub.Cancel(
+        stub.Cancel(
             container_pb2.CancelRequest(invocation_id=hold_ids[0]),
             timeout=_CONTROL_DEADLINE,
         )
@@ -209,7 +226,7 @@ def test_admission_control_busy_and_control_rpcs(
         # Clean up remaining in-flight invocations
         for inv_id in hold_ids[1:]:
             try:
-                python_script_stub.Cancel(
+                stub.Cancel(
                     container_pb2.CancelRequest(invocation_id=inv_id),
                     timeout=1.0,
                 )
@@ -218,3 +235,25 @@ def test_admission_control_busy_and_control_rpcs(
 
         # Wait for all threads to finish
         concurrent.futures.wait(futures, timeout=10)
+
+
+def test_python_admission_control_busy_and_control_rpcs(
+    python_script_stub: container_pb2_grpc.ContainerServiceStub,
+) -> None:
+    _assert_admission_control_busy_and_control_rpcs(
+        python_script_stub,
+        step_revision_id=_PYTHON_STEP_REVISION_ID,
+        script_code="import time; time.sleep(30)",
+        invocation_prefix="python",
+    )
+
+
+def test_bash_admission_control_busy_and_control_rpcs(
+    bash_script_stub: container_pb2_grpc.ContainerServiceStub,
+) -> None:
+    _assert_admission_control_busy_and_control_rpcs(
+        bash_script_stub,
+        step_revision_id=_BASH_STEP_REVISION_ID,
+        script_code="sleep 30",
+        invocation_prefix="bash",
+    )
