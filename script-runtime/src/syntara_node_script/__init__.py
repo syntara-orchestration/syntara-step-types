@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from syntara_plugin.runtime import (
@@ -61,15 +61,12 @@ class BashScriptOutput(ScriptOutput):
     pass
 
 
-_OutputT = TypeVar("_OutputT", bound=ScriptOutput)
-
-
-def _run_script(
+def _run_script[OutputT: ScriptOutput](
     language: Literal["python", "bash"],
     inputs: ScriptInput,
     context: ExecutionContext,
-    output_type: type[_OutputT],
-) -> _OutputT:
+    output_type: type[OutputT],
+) -> OutputT:
     if context.cancelled:
         raise StepFailure(
             1,

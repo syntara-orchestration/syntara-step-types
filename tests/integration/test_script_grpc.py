@@ -129,9 +129,7 @@ def test_admission_control_busy_and_control_rpcs(
     _CONTROL_DEADLINE = 0.5  # seconds — Control RPCs must respond within this
 
     hold_ids = [f"admission-hold-{i:03d}" for i in range(_PERMIT_COUNT)]
-    inputs = json.dumps(
-        {"code": f"import time; time.sleep({_HOLD_SECONDS})"}
-    ).encode()
+    inputs = json.dumps({"code": f"import time; time.sleep({_HOLD_SECONDS})"}).encode()
 
     def _hold_open(inv_id: str) -> str:
         req = container_pb2.ExecuteRequest(
@@ -190,9 +188,7 @@ def test_admission_control_busy_and_control_rpcs(
 
         # --- Health must respond promptly under full load ---
         health_start = time.monotonic()
-        health = python_script_stub.Health(
-            container_pb2.HealthRequest(), timeout=_CONTROL_DEADLINE
-        )
+        health = python_script_stub.Health(container_pb2.HealthRequest(), timeout=_CONTROL_DEADLINE)
         health_elapsed = time.monotonic() - health_start
         assert health.ready, "Health returned not-ready under load"
         assert health_elapsed < _CONTROL_DEADLINE, (
