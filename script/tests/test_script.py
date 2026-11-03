@@ -1,4 +1,4 @@
-"""Tests for ScriptStep using the syntara-plugin-runtime SDK."""
+"""Tests for ScriptStep using the syntara-plugin-contracts runtime."""
 
 import pytest
 from syntara_node_script import ScriptInput, ScriptStep

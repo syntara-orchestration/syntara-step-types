@@ -1,8 +1,8 @@
 # Syntara step types
 
 Container-packaged workflow step types for the Syntara Execution Plane, built on the
-`syntara-plugin-sdk` SDK. Each step is a typed `ActionStep[TInput, TOutput]` served
-over the `ContainerService` gRPC ABI.
+`syntara-plugin-contracts` runtime. Each step is a typed `ActionStep[TInput, TOutput]`
+served over the `ContainerService` gRPC ABI.
 
 ## Development
 
@@ -40,21 +40,22 @@ make push-node-images REGISTRY=quay.io/your-org TAG=0.1.0
 
 ## Architecture
 
-Steps implement `ActionStep[TInput, TOutput]` from `syntara-plugin-sdk`. The SDK
-owns gRPC transport (`ContainerService`), input validation, and failure enveloping.
-Each container exposes port 50051 and serves multiple concurrent invocations.
+Steps implement `ActionStep[TInput, TOutput]` from `syntara-plugin-contracts`. The
+runtime package provides gRPC transport (`ContainerService`), input validation, and
+failure enveloping. Each container exposes port 50051 and serves multiple concurrent
+invocations.
 
 See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS.
 
-## SDK dependency
+## Runtime and SDK dependencies
 
-Development installs resolve the published `syntara-plugin-sdk` package using `uv.lock`.
-Container builds install version `0.1.0a1` from the package registry by default;
-`--build-arg SDK_VERSION=...` selects another compatible release. Both the Makefile
-and SDK workload builds work from this repository without a sibling SDK checkout
-or staged wheels.
+Step packages and workload images depend on `syntara-plugin-contracts` for runtime
+APIs. Container builds install version `0.1.0a2` by default; set
+`CONTRACTS_VERSION=...` when running `make node-images` or `make node-image` to select
+another release. The development dependency group also includes `syntara-plugin-sdk`
+for tests that compile and inspect plugin descriptors.
 
 ## Provenance
 
 Extracted from `syntara-orchestration/syntara` (`backend/nodes`) and refactored to use
-the `syntara-plugin-sdk` SDK. Original source is Apache 2.0 licensed.
+the `syntara-plugin-contracts` runtime. Original source is Apache 2.0 licensed.

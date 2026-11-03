@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 
 [manifest]
@@ -810,14 +810,14 @@ source = { editable = "http-request" }
 dependencies = [
     { name = "httpx" },
     { name = "pyyaml" },
-    { name = "syntara-plugin-sdk" },
+    { name = "syntara-plugin-contracts" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a1" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" },
 ]
 
 [[package]]
@@ -826,18 +826,18 @@ version = "0.1.0"
 source = { editable = "script" }
 dependencies = [
     { name = "pyyaml" },
-    { name = "syntara-plugin-sdk" },
+    { name = "syntara-plugin-contracts" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a1" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" },
 ]
 
 [[package]]
 name = "syntara-plugin-contracts"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
@@ -846,22 +846,22 @@ dependencies = [
     { name = "pydantic" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/94/05/dfaade0098bf00adb83fe4a249f7a129cf8a506e3b656ff86a8ec80a4900/syntara_plugin_contracts-0.1.0a1.tar.gz", hash = "sha256:cbe0af7b4146bd33a678c5017003a08d4387340b3e0093ae81dfea5eb4bb1450", size = 68800, upload-time = "2026-10-26T16:24:14.009Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/61/f7e37d0fc8a737facad3d89abb2421e9eb7728d1c782ca105f5947ba0e61/syntara_plugin_contracts-0.1.0a2.tar.gz", hash = "sha256:e3aaabf4ddef6bf730ce8f3c2c212f4b0e0f8bc6a75a7d9291153f0084c49373", size = 82059, upload-time = "2026-11-02T21:09:35.23Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/9a/10f51af2fb36ebcb12e209cb78fe87cd2271acb73dca0dc7150cc3928afb/syntara_plugin_contracts-0.1.0a1-py3-none-any.whl", hash = "sha256:7fbdd3b6b471e6d0467fbf79e0c56f6df0fc46a417821c7030b2a6b01436fe03", size = 101446, upload-time = "2026-10-26T16:24:12.622Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/f1/03eb0dd67c7eece62d48716e178f1072a571e22f7a82290abfb462efc0ff/syntara_plugin_contracts-0.1.0a2-py3-none-any.whl", hash = "sha256:a6436506323fac6d96ef40b95504e9e9f1be2977aa52124756c46633de64dcf6", size = 121678, upload-time = "2026-11-02T21:09:33.943Z" },
 ]
 
 [[package]]
 name = "syntara-plugin-sdk"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/94/994facd789e96b634890630f1f0e80a6b7e4230ae2fdcf19077811954a74/syntara_plugin_sdk-0.1.0a1.tar.gz", hash = "sha256:da3e3827ece7aae00a0768c925fd1bd4e27780dad377f10a1b6c6037ec61964d", size = 72199, upload-time = "2026-10-26T16:25:29.334Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/79/e4bba4ec89ed470c0ca8129c510e8ed61bc0bffb37489c71f53d4b3dfc13/syntara_plugin_sdk-0.1.0a2.tar.gz", hash = "sha256:55585367119401dd92973c04b967de6843b09c7996c87f4f1308cce8bfd0b40c", size = 105239, upload-time = "2026-11-02T21:10:03.445Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/e3/94c772e1dc57c2829b025daa208947ac00c993103041be7d3cf0130448b2/syntara_plugin_sdk-0.1.0a1-py3-none-any.whl", hash = "sha256:8357d2374afca36eb8e525ba9e85563cec7f59b482b5c9b5097d1071dc009f77", size = 87153, upload-time = "2026-10-26T16:25:27.781Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/59/58f855e4f4b5f3dea68f453dc0fdf4bd03eaf0b9ed43b67b9fd5f2ae827c/syntara_plugin_sdk-0.1.0a2-py3-none-any.whl", hash = "sha256:e157e36480643f19480c6081697124ea288b26b804a8aec7f302372944e2719b", size = 122394, upload-time = "2026-11-02T21:10:01.892Z" },
 ]
 
 [[package]]
@@ -869,7 +869,7 @@ name = "syntara-step-types"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "syntara-plugin-sdk" },
+    { name = "syntara-plugin-contracts" },
 ]
 
 [package.dev-dependencies]
@@ -882,11 +882,12 @@ dev = [
     { name = "pyyaml" },
     { name = "respx" },
     { name = "ruff" },
+    { name = "syntara-plugin-sdk" },
     { name = "types-pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-sdk", specifier = ">=0.1.0a1" }]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -898,6 +899,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = "==0.14.3" },
+    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a2" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

@@ -2,12 +2,12 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-ARG SDK_VERSION=0.1.0a1
+ARG CONTRACTS_VERSION=0.1.0a2
 COPY script/pyproject.toml /app/pyproject.toml
 COPY script/manifest.yaml /app/manifest.yaml
 COPY script/src /app/src
-# Resolve the published SDK and all step dependencies in a clean build context.
-RUN pip install --no-cache-dir "syntara-plugin-sdk==${SDK_VERSION}" .
+# Resolve the published runtime contracts and all step dependencies in a clean build context.
+RUN pip install --no-cache-dir "syntara-plugin-contracts==${CONTRACTS_VERSION}" .
 
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12

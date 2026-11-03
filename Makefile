@@ -3,6 +3,7 @@ CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= dev
 NODE ?= http-request
+CONTRACTS_VERSION ?= 0.1.0a2
 UV ?= uv
 SOURCE_URL ?= https://github.com/syntara-orchestration/syntara-step-types
 VCS_REF ?= $(shell git rev-parse HEAD)
@@ -60,6 +61,7 @@ node-images:
 node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
 	$(CONTAINER_ENGINE) build \
+		--build-arg CONTRACTS_VERSION="$(CONTRACTS_VERSION)" \
 		--build-arg SOURCE_URL="$(SOURCE_URL)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		-f $(NODE)/Containerfile \

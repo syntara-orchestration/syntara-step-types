@@ -1,7 +1,7 @@
 # Runtime and gRPC contract
 
 Step containers implement the `syntara.container.v1alpha1` ABI defined in the
-`syntara-plugin-sdk` SDK (`ContainerService` proto). Each container exposes
+`syntara-plugin-contracts` package (`ContainerService` proto). Each container exposes
 a gRPC server on port 50051 and can serve multiple concurrent invocations.
 
 | RPC | Behaviour |
@@ -54,4 +54,4 @@ docker run --rm -p 50051:50051 localhost/syntara-node-script:local-test
 ```
 
 Inspect health or send an invocation using any gRPC client pointed at `localhost:50051`
-with the `syntara-plugin-sdk` proto (`container.proto`).
+with the `syntara-plugin-contracts` proto (`container.proto`).

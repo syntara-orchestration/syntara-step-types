@@ -2,7 +2,7 @@ Syntara
 Copyright 2024-2026 Red Hat, Inc.
 
 Source extracted from syntara-orchestration/syntara (backend/nodes) and refactored
-to use the syntara-plugin-runtime SDK.
+to use the syntara-plugin-contracts runtime.
 
 The following applicable notices are retained from the upstream source.
 Their version labels describe the upstream inventory; uv.lock records the

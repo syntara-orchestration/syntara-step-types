@@ -3,7 +3,7 @@ name = "syntara-step-types"
 version = "0.1.0"
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "syntara-plugin-sdk>=0.1.0a1",
+    "syntara-plugin-contracts>=0.1.0a2",
 ]
 
 [dependency-groups]
@@ -17,6 +17,7 @@ dev = [
     "mypy>=1.8",
     "pyyaml>=6.0.3",
     "types-PyYAML>=6.0",
+    "syntara-plugin-sdk>=0.1.0a2",
 ]
 
 [tool.uv.workspace]
