@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "customManagers:dockerfileVersions"
+  ],
+  "enabledManagers": [
+    "pep621",
+    "custom.regex"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "syntara-plugin-contracts",
+        "syntara-plugin-sdk"
+      ],
+      "groupName": "syntara-plugin-packages",
+      "ignoreUnstable": false,
+      "respectLatest": false
+    }
+  ]
+}
