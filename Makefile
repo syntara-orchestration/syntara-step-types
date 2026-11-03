@@ -1,9 +1,12 @@
 NODES := http-request script-python script-bash
+SDK_PLUGINS := http-request script-python script-bash
 PYTHON_PACKAGES := http-request script-runtime
 CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= dev
 NODE ?= http-request
+PLUGIN ?=
+SDK_WORKLOAD_TAG ?= ci-$(shell date +%s)
 CONTRACTS_VERSION ?=
 CONTRACTS_VERSION_BUILD_ARG = $(if $(strip $(CONTRACTS_VERSION)),--build-arg CONTRACTS_VERSION="$(CONTRACTS_VERSION)",)
 UV ?= uv
@@ -55,6 +58,40 @@ test-integration-ci:
 
 .PHONY: check
 check: lint typecheck test
+
+.PHONY: sdk-plugin-check
+sdk-plugin-check:
+	@case "$(PLUGIN)" in \
+		http-request|script-python|script-bash) ;; \
+		*) echo 'Set PLUGIN to one of: $(SDK_PLUGINS)'; exit 2 ;; \
+	esac
+
+.PHONY: sdk-plugin-validate
+sdk-plugin-validate: sdk-plugin-check
+	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin validate --json | jq -e '.ok == true'
+
+.PHONY: sdk-plugin-run
+sdk-plugin-run: sdk-plugin-check
+	@case "$(PLUGIN)" in \
+		http-request) filter='.ok == true and .output.status_code == 200' ;; \
+		script-python) filter='.ok == true and .output.return_code == 0 and .output.stdout_json.result == 42' ;; \
+		script-bash) filter='.ok == true and .output.return_code == 0 and .output.stdout == "hello from bash\n"' ;; \
+	esac; \
+	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin run --mode source --input-file example.json --json | jq -e "$$filter"
+
+.PHONY: sdk-plugin-build-inspect
+sdk-plugin-build-inspect: sdk-plugin-check
+	@mkdir -p "$(PLUGIN)/dist"
+	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin build \
+		--with-workload --workload-tag "$(SDK_WORKLOAD_TAG)" \
+		--output "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
+	jq -e '(.artifactDigest | test("^sha256:[0-9a-f]{64}$$")) and (.workloadImage | test("@sha256:[0-9a-f]{64}$$"))' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
+	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin inspect "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
+	jq -e '.artifactDigest | test("^sha256:[0-9a-f]{64}$$")' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
+	$(UV) run --frozen --all-packages python .github/scripts/assert_plugin_archive.py "$(PLUGIN)" "$(SDK_WORKLOAD_TAG)"
+
+.PHONY: sdk-plugin-ci
+sdk-plugin-ci: sdk-plugin-validate sdk-plugin-run sdk-plugin-build-inspect
 
 .PHONY: node-images node-image
 node-images:

@@ -107,29 +107,64 @@ jobs:
           path: step-types/test-results/
           retention-days: 7
 
-  images:
+  sdk-plugin-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      CONTAINER_ENGINE: docker
-      TAG: ci-${{ github.sha }}
-      SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
-      VCS_REF: ${{ github.sha }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: [http-request, script-python, script-bash]
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
           path: step-types
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
       - uses: astral-sh/setup-uv@v7
         with:
           version: ${{ env.UV_VERSION }}
-      - run: make node-images
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y podman
+      - run: make install
         working-directory: step-types
+      - name: Start temporary OCI registry
+        run: |
+          podman run --detach --name syntara-ci-registry --publish 5000:5000 docker.io/library/registry:2
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:5000/v2/; then
+              exit 0
+            fi
+            sleep 1
+          done
+          podman logs syntara-ci-registry
+          exit 1
+      - name: Validate plugin workspace
+        run: make sdk-plugin-validate PLUGIN=${{ matrix.plugin }}
+        working-directory: step-types
+      - name: Run plugin in source mode
+        run: make sdk-plugin-run PLUGIN=${{ matrix.plugin }}
+        working-directory: step-types
+      - name: Build workload and inspect archive
+        run: make sdk-plugin-build-inspect PLUGIN=${{ matrix.plugin }} SDK_WORKLOAD_TAG=ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+        working-directory: step-types
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sdk-plugin-${{ matrix.plugin }}
+          path: step-types/${{ matrix.plugin }}/dist/
+          retention-days: 7
+      - name: Stop temporary OCI registry
+        if: always()
+        run: podman stop syntara-ci-registry || true
 
   steps-ci:
     name: steps-ci
     if: always()
-    needs: [quality, tests, integration-tests, images]
+    needs: [quality, tests, integration-tests, sdk-plugin-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -138,9 +173,9 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.tests.result }}
           INTEGRATION_RESULT: ${{ needs.integration-tests.result }}
-          IMAGE_RESULT: ${{ needs.images.result }}
+          SDK_PLUGIN_RESULT: ${{ needs.sdk-plugin-checks.result }}
         run: |
           test "$QUALITY_RESULT" = success
           test "$TEST_RESULT" = success
           test "$INTEGRATION_RESULT" = success
-          test "$IMAGE_RESULT" = success
+          test "$SDK_PLUGIN_RESULT" = success
