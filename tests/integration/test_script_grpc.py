@@ -38,6 +38,10 @@ def _execute(
     )
     for event in stub.Execute(request, timeout=35):
         if event.HasField("result"):
+            if event.result.status_code:
+                pytest.fail(
+                    f"Step returned error result — {event.result.error_result_json.decode()}"
+                )
             return json.loads(event.result.output_json)
         if event.HasField("failure"):
             pytest.fail(
@@ -97,13 +101,16 @@ def test_script_failure_handling(script_stub: container_pb2_grpc.ContainerServic
         timeout_seconds=30,
     )
     for event in script_stub.Execute(request, timeout=35):
-        if event.HasField("failure"):
-            assert event.failure.code
-            assert not event.failure.retryable
-            return
         if event.HasField("result"):
-            pytest.fail("Expected failure but got a successful result")
-    pytest.fail("Execute stream closed without a failure event")
+            assert event.result.status_code != 0
+            error = json.loads(event.result.error_result_json)
+            assert error["code"] == "REMOTE_REJECTED"
+            assert error["category"] == "BUSINESS"
+            assert not error["retryable"]
+            return
+        if event.HasField("failure"):
+            pytest.fail(f"Expected an error result, got runtime failure: {event.failure.code}")
+    pytest.fail("Execute stream closed without an error result")
 
 
 def test_admission_control_busy_and_control_rpcs(
@@ -133,6 +140,8 @@ def test_admission_control_busy_and_control_rpcs(
         )
         try:
             for event in script_stub.Execute(req, timeout=_HOLD_SECONDS + 5):
+                if event.HasField("result") and event.result.status_code:
+                    return json.loads(event.result.error_result_json)["code"]
                 if event.HasField("failure"):
                     return event.failure.code
         except grpc.RpcError:
@@ -159,15 +168,19 @@ def test_admission_control_busy_and_control_rpcs(
         busy_start = time.monotonic()
         busy_seen = False
         for event in script_stub.Execute(busy_req, timeout=30):
-            if event.HasField("failure"):
+            if event.HasField("result"):
+                assert event.result.status_code != 0, "Busy request unexpectedly succeeded"
+                error = json.loads(event.result.error_result_json)
                 elapsed = time.monotonic() - busy_start
-                assert event.failure.retryable, "Busy rejection must be retryable"
+                assert error["code"] == "UPSTREAM_TRANSIENT"
+                assert error["category"] == "DEPENDENCY"
+                assert error["retryable"], "Busy rejection must be retryable"
                 assert elapsed < _CONTROL_DEADLINE, (
                     f"Busy rejection took {elapsed:.3f}s — dispatch thread was blocked"
                 )
                 busy_seen = True
                 break
-        assert busy_seen, "Excess Execute did not return a failure event"
+        assert busy_seen, "Excess Execute did not return an error result"
 
         # --- Health must respond promptly under full load ---
         health_start = time.monotonic()

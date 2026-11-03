@@ -2,7 +2,7 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-ARG CONTRACTS_VERSION=0.1.0a1
+ARG CONTRACTS_VERSION=0.1.0a2
 COPY script/pyproject.toml /app/pyproject.toml
 COPY script/manifest.yaml /app/manifest.yaml
 COPY script/src /app/src

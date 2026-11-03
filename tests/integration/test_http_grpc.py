@@ -43,6 +43,10 @@ def _execute(
     )
     for event in stub.Execute(request, timeout=35):
         if event.HasField("result"):
+            if event.result.status_code:
+                pytest.fail(
+                    f"Step returned error result — {event.result.error_result_json.decode()}"
+                )
             return json.loads(event.result.output_json)
         if event.HasField("failure"):
             pytest.fail(
@@ -97,10 +101,13 @@ def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceS
         timeout_seconds=10,
     )
     for event in http_stub.Execute(request, timeout=15):
-        if event.HasField("failure"):
-            assert event.failure.code == "POLICY_DENIED"
-            assert not event.failure.retryable
-            return
         if event.HasField("result"):
-            pytest.fail("Expected SSRF to be blocked but request succeeded")
-    pytest.fail("Execute stream closed without a failure event")
+            assert event.result.status_code != 0
+            error = json.loads(event.result.error_result_json)
+            assert error["code"] == "POLICY_DENIED"
+            assert error["category"] == "POLICY"
+            assert not error["retryable"]
+            return
+        if event.HasField("failure"):
+            pytest.fail(f"Expected an error result, got runtime failure: {event.failure.code}")
+    pytest.fail("Execute stream closed without an error result")

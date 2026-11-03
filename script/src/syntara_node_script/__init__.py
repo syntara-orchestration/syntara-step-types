@@ -9,9 +9,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from syntara_plugin.runtime import (
     ActionStep,
-    ContainerInvocationError,
+    ErrorCategory,
     ExecutionContext,
     FailureCode,
+    StepFailure,
 )
 
 from .executor import (
@@ -56,20 +57,24 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> ScriptOutput:
         # Check if already cancelled before starting
         if context.cancelled:
-            raise ContainerInvocationError(
-                FailureCode.CANCELLED,
+            raise StepFailure(
+                1,
                 "Script execution was cancelled before starting",
+                "Script execution was cancelled before starting",
+                code=FailureCode.CANCELLED.value,
+                category=ErrorCategory.CANCELLED,
                 retryable=False,
-                outcome="not_started",
             )
 
         # Enforce admission limit so Cancel and Health RPCs always have threads available.
         if not _EXECUTE_SEMAPHORE.acquire(blocking=False):
-            raise ContainerInvocationError(
-                FailureCode.UPSTREAM_TRANSIENT,
+            raise StepFailure(
+                1,
                 "Server busy: too many concurrent executions",
+                "Server busy: too many concurrent executions",
+                code=FailureCode.UPSTREAM_TRANSIENT.value,
+                category=ErrorCategory.DEPENDENCY,
                 retryable=True,
-                outcome="not_started",
             )
         try:
             result = asyncio.run(
@@ -83,25 +88,31 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
             )
             return ScriptOutput(**result)
         except ScriptExecutionError as exc:
-            raise ContainerInvocationError(
-                FailureCode.REMOTE_REJECTED,
+            raise StepFailure(
+                1,
                 f"Script exited with code {exc.exit_code}",
+                f"Script exited with code {exc.exit_code}",
+                code=FailureCode.REMOTE_REJECTED.value,
+                category=ErrorCategory.BUSINESS,
                 retryable=False,
-                outcome="not_completed",
             ) from exc
         except ScriptTimeoutError as exc:
-            raise ContainerInvocationError(
-                FailureCode.TIMEOUT,
+            raise StepFailure(
+                1,
                 "Script execution timed out",
+                "Script execution timed out",
+                code=FailureCode.TIMEOUT.value,
+                category=ErrorCategory.TIMEOUT,
                 retryable=True,
-                outcome="not_completed",
             ) from exc
         except ScriptCancelledError as exc:
-            raise ContainerInvocationError(
-                FailureCode.CANCELLED,
+            raise StepFailure(
+                1,
                 "Script execution was cancelled",
+                "Script execution was cancelled",
+                code=FailureCode.CANCELLED.value,
+                category=ErrorCategory.CANCELLED,
                 retryable=False,  # Cancellation is NOT retryable
-                outcome="not_completed",
             ) from exc
         finally:
             _EXECUTE_SEMAPHORE.release()

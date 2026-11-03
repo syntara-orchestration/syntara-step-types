@@ -9,7 +9,7 @@ import httpx
 import pytest
 import respx
 from syntara_node_http_request import HttpInput, HttpMethod, HttpRequestStep
-from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
+from syntara_plugin.runtime import ExecutionContext, FailureCode, StepFailure
 
 
 @pytest.fixture
@@ -96,52 +96,52 @@ def test_404_raises_non_retryable(
     step: HttpRequestStep, context: ExecutionContext, mock_dns
 ) -> None:
     respx.get("https://93.184.216.34/missing").mock(return_value=httpx.Response(404))
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/missing"), context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED
+    assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
     assert not exc_info.value.retryable
 
 
 @respx.mock
 def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://93.184.216.34/flaky").mock(return_value=httpx.Response(503))
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/flaky"), context)
-    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT
+    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT.value
     assert exc_info.value.retryable
 
 
 @respx.mock
 def test_429_raises_retryable(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.get("https://93.184.216.34/limited").mock(return_value=httpx.Response(429))
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/limited"), context)
-    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT
+    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT.value
     assert exc_info.value.retryable
 
 
 def test_ssrf_private_ip_rejected(step: HttpRequestStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="http://192.168.1.1/secret"), context)
-    assert exc_info.value.code == FailureCode.POLICY_DENIED
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
 def test_ssrf_loopback_rejected(step: HttpRequestStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="http://127.0.0.1/secret"), context)
-    assert exc_info.value.code == FailureCode.POLICY_DENIED
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
 def test_ssrf_link_local_rejected(step: HttpRequestStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="http://169.254.169.254/metadata"), context)
-    assert exc_info.value.code == FailureCode.POLICY_DENIED
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
 def test_non_http_scheme_rejected(step: HttpRequestStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
+    with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="ftp://example.com/file"), context)
-    assert exc_info.value.code == FailureCode.POLICY_DENIED
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
 @respx.mock
@@ -239,18 +239,18 @@ def test_private_redirect_is_blocked(step, context, mock_dns):
     respx.get("https://93.184.216.34/start").mock(
         return_value=httpx.Response(302, headers={"location": "http://127.0.0.1/private"})
     )
-    with pytest.raises(ContainerInvocationError) as exc:
+    with pytest.raises(StepFailure) as exc:
         step.run(HttpInput(url="https://example.com/start", follow_redirects=True), context)
-    assert exc.value.code == FailureCode.POLICY_DENIED
+    assert exc.value.code == FailureCode.POLICY_DENIED.value
     assert len(respx.calls) == 1
 
 
 def test_cancelled_http_never_starts(step, context):
     context.cancellation.set()
     with patch("socket.getaddrinfo") as resolve:
-        with pytest.raises(ContainerInvocationError) as exc:
+        with pytest.raises(StepFailure) as exc:
             step.run(HttpInput(url="https://example.com"), context)
-    assert exc.value.code == FailureCode.CANCELLED
+    assert exc.value.code == FailureCode.CANCELLED.value
     assert not exc.value.retryable
     resolve.assert_not_called()
 
@@ -274,9 +274,9 @@ def test_cancellation_interrupts_body_and_releases_capacity(step, context, mock_
     body = WaitingBody()
     respx.get("https://93.184.216.34/slow").mock(return_value=httpx.Response(200, stream=body))
     start = time.monotonic()
-    with pytest.raises(ContainerInvocationError) as exc:
+    with pytest.raises(StepFailure) as exc:
         step.run(HttpInput(url="https://example.com/slow", timeout_seconds=30), context)
-    assert exc.value.code == FailureCode.CANCELLED
+    assert exc.value.code == FailureCode.CANCELLED.value
     assert time.monotonic() - start < 1
     assert body.closed
 
@@ -307,9 +307,9 @@ def test_cancellation_interrupts_waiting_for_headers(step, context, mock_dns):
             interrupted.append(True)
 
     respx.get("https://93.184.216.34/slow").mock(side_effect=respond)
-    with pytest.raises(ContainerInvocationError) as exc:
+    with pytest.raises(StepFailure) as exc:
         step.run(HttpInput(url="https://example.com/slow"), context)
-    assert exc.value.code == FailureCode.CANCELLED
+    assert exc.value.code == FailureCode.CANCELLED.value
     assert interrupted == [True]
 
 
