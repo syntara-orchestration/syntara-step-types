@@ -8,8 +8,9 @@ COPY http-request/pyproject.toml /app/http-request/pyproject.toml
 COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
 COPY script-python/manifest.yaml /app/manifest.yaml
 COPY script-runtime/src /app/script-runtime/src
-RUN uv sync --frozen --no-dev --no-build --no-editable \
-    --package syntara-node-script-runtime
+RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
+        --package syntara-node-script-runtime \
+    && uv sync --frozen --no-dev --no-editable --package syntara-node-script-runtime
 
 FROM base
 COPY --from=builder /app/.venv /app/.venv
