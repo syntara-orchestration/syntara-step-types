@@ -7,15 +7,15 @@ COPY pyproject.toml uv.lock /app/
 COPY http-request/pyproject.toml /app/http-request/pyproject.toml
 COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
 COPY script-bash/manifest.yaml /app/manifest.yaml
-COPY script-runtime/src /app/script-runtime/src
 RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
-        --package syntara-node-script-runtime \
-    && uv sync --frozen --no-dev --no-editable --package syntara-node-script-runtime
+    --package syntara-node-script-runtime
 
 FROM base
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/manifest.yaml /app/manifest.yaml
+COPY script-runtime/src /app/src
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
 EXPOSE 50051
 USER 65532:65532
 ENTRYPOINT ["python", "-m", "syntara_node_script.bash"]
