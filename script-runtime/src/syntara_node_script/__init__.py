@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from syntara_plugin.runtime import (
     ActionStep,
     ErrorCategory,
+    ErrorResult,
     ExecutionContext,
     FailureCode,
     StepFailure,
@@ -63,6 +64,14 @@ class BashScriptOutput(ScriptOutput):
     pass
 
 
+class ScriptErrorResult(ErrorResult):
+    """A completed subprocess failure with its captured diagnostic output."""
+
+    return_code: int
+    stdout: str
+    stderr: str
+
+
 def _run_script[OutputT: ScriptOutput](
     language: Literal["python", "bash"],
     inputs: ScriptInput,
@@ -105,10 +114,15 @@ def _run_script[OutputT: ScriptOutput](
         raise StepFailure(
             1,
             message,
-            message,
-            code=FailureCode.REMOTE_REJECTED.value,
-            category=ErrorCategory.BUSINESS,
-            retryable=False,
+            error_result=ScriptErrorResult(
+                message=message,
+                code=FailureCode.REMOTE_REJECTED.value,
+                category=ErrorCategory.BUSINESS,
+                retryable=False,
+                return_code=exc.exit_code,
+                stdout=exc.stdout,
+                stderr=exc.stderr,
+            ),
         ) from exc
     except ScriptTimeoutError as exc:
         message = "Script execution timed out"
