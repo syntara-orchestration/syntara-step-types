@@ -30,13 +30,18 @@ The default listener is `0.0.0.0:50051`. For development, connect directly or vi
 `kubectl port-forward`. Production deployments should use mutual TLS; configure via
 the Execution Plane's deployment manifests.
 
+Completed scripts, including nonzero exits, return a `Result` with `return_code`,
+`stdout`, and `stderr`. The Temporal activity interprets nonzero `return_code`
+as a script failure. A valid Result means the invocation produced script output;
+it does not imply the subprocess exited successfully.
+
 ## Failure codes
 
 Steps raise `ContainerInvocationError(FailureCode.*, ...)` for controlled failures:
 
 | Code | Meaning | Retryable |
 | --- | --- | --- |
-| `REMOTE_REJECTED` | Script non-zero exit; HTTP 4xx | No |
+| `REMOTE_REJECTED` | HTTP 4xx | No |
 | `UPSTREAM_TRANSIENT` | HTTP 429/502/503/504; network error | Yes |
 | `TIMEOUT` | Script or HTTP request timed out | Yes |
 | `POLICY_DENIED` | SSRF validation blocked the URL | No |

@@ -2,7 +2,7 @@
 
 import pytest
 from syntara_node_script import ScriptInput, ScriptStep
-from syntara_plugin.runtime import ContainerInvocationError, ExecutionContext, FailureCode
+from syntara_plugin.runtime import ExecutionContext
 
 
 @pytest.fixture
@@ -36,11 +36,18 @@ def test_python_json_output(step: ScriptStep, context: ExecutionContext) -> None
     assert output.stdout_json == {"x": 1}
 
 
-def test_nonzero_exit_raises(step: ScriptStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
-        step.run(ScriptInput(language="bash", code="exit 3"), context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED
-    assert not exc_info.value.retryable
+@pytest.mark.parametrize(
+    ("language", "code"),
+    [
+        ("bash", "echo before; echo problem >&2; exit 3"),
+        ("python", 'import sys; print("before"); print("problem", file=sys.stderr); sys.exit(3)'),
+    ],
+)
+def test_nonzero_exit_preserves_output(step, context, language, code):
+    output = step.run(ScriptInput(language=language, code=code), context)
+    assert output.return_code == 3
+    assert output.stdout == "before\n"
+    assert output.stderr == "problem\n"
 
 
 def test_environment_variables(step: ScriptStep, context: ExecutionContext) -> None:
@@ -61,10 +68,9 @@ def test_python_stderr(step: ScriptStep, context: ExecutionContext) -> None:
 
 
 def test_bash_stderr_on_error(step: ScriptStep, context: ExecutionContext) -> None:
-    with pytest.raises(ContainerInvocationError) as exc_info:
-        step.run(ScriptInput(language="bash", code="echo oops >&2; exit 1"), context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED
-    assert "1" in exc_info.value.safe_message
+    output = step.run(ScriptInput(language="bash", code="echo oops >&2; exit 1"), context)
+    assert output.return_code == 1
+    assert output.stderr == "oops\n"
 
 
 def test_python_integer_json_precision(step: ScriptStep, context: ExecutionContext) -> None:

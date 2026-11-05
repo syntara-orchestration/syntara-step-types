@@ -44,6 +44,12 @@ Steps implement `ActionStep[TInput, TOutput]` from `syntara-plugin-sdk`. The SDK
 owns gRPC transport (`ContainerService`), input validation, and failure enveloping.
 Each container exposes port 50051 and serves multiple concurrent invocations.
 
+Completed scripts return `return_code`, `stdout`, and `stderr` in the SDK Result,
+including nonzero exits. The workflow activity uses `return_code` to report a
+script failure without discarding its logs. Timeout, cancellation, and failures
+that cannot produce script output remain SDK Failure events. Rebuild the script
+image to pick up this behavior; existing image digests retain the old behavior.
+
 See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS.
 
 ## SDK dependency

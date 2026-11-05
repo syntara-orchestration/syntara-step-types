@@ -83,12 +83,10 @@ class ScriptStep(ActionStep[ScriptInput, ScriptOutput]):
             )
             return ScriptOutput(**result)
         except ScriptExecutionError as exc:
-            raise ContainerInvocationError(
-                FailureCode.REMOTE_REJECTED,
-                f"Script exited with code {exc.exit_code}",
-                retryable=False,
-                outcome="not_completed",
-            ) from exc
+            # A completed subprocess has a valid business result even when its
+            # exit code is nonzero. Preserve it in the SDK Result stream so the
+            # caller can report the failure with the captured output.
+            return ScriptOutput(return_code=exc.exit_code, stdout=exc.stdout, stderr=exc.stderr)
         except ScriptTimeoutError as exc:
             raise ContainerInvocationError(
                 FailureCode.TIMEOUT,

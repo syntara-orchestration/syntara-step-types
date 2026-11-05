@@ -90,7 +90,11 @@ def test_script_failure_handling(script_stub: container_pb2_grpc.ContainerServic
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps(
-            {"language": "python", "code": "raise SystemExit(1)", "environment": {}}
+            {
+                "language": "bash",
+                "code": "echo before; echo problem >&2; exit 7",
+                "environment": {},
+            }
         ).encode(),
         runtime_context_json=b"{}",
         credential_file_paths_json=b"{}",
@@ -98,12 +102,14 @@ def test_script_failure_handling(script_stub: container_pb2_grpc.ContainerServic
     )
     for event in script_stub.Execute(request, timeout=35):
         if event.HasField("failure"):
-            assert event.failure.code
-            assert not event.failure.retryable
-            return
+            pytest.fail(f"Completed subprocess lost its output: {event.failure.code}")
         if event.HasField("result"):
-            pytest.fail("Expected failure but got a successful result")
-    pytest.fail("Execute stream closed without a failure event")
+            result = json.loads(event.result.output_json)
+            assert result["return_code"] == 7
+            assert result["stdout"] == "before\n"
+            assert result["stderr"] == "problem\n"
+            return
+    pytest.fail("Execute stream closed without a result event")
 
 
 def test_admission_control_busy_and_control_rpcs(
