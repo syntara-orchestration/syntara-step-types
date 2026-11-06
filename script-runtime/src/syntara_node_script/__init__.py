@@ -34,6 +34,13 @@ class ScriptInput(BaseModel):
 
     code: str = Field(min_length=1)
     environment: dict[str, str] = Field(default_factory=dict)
+    # Legacy AO compatibility: AO's built-in script node sends the language
+    # alongside the code (one step, two languages). These plugins split the
+    # step per language, so accept the field and reject mismatches in run().
+    language: Literal["python", "bash"] | None = Field(
+        default=None,
+        description="Language marker sent by AO's built-in script node; must match this plugin",
+    )
     max_output_bytes: int = Field(
         default=DEFAULT_MAX_OUTPUT_BYTES,
         gt=0,
@@ -134,13 +141,29 @@ def _run_script[OutputT: ScriptOutput](
         _EXECUTE_SEMAPHORE.release()
 
 
+def _reject_language_mismatch(inputs: ScriptInput, expected: Literal["python", "bash"]) -> None:
+    """Reject the legacy language marker when it names the other plugin."""
+
+    if inputs.language is not None and inputs.language != expected:
+        raise StepFailure(
+            1,
+            f"This step runs {expected} code, but the request language is {inputs.language}",
+            f"This step runs {expected} code, but the request language is {inputs.language}",
+            code=FailureCode.INVALID_INPUT.value,
+            category=ErrorCategory.VALIDATION,
+            retryable=False,
+        )
+
+
 class PythonScriptStep(ActionStep[ScriptInput, PythonScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> PythonScriptOutput:
+        _reject_language_mismatch(inputs, "python")
         return _run_script("python", inputs, context, PythonScriptOutput)
 
 
 class BashScriptStep(ActionStep[ScriptInput, BashScriptOutput]):
     def run(self, inputs: ScriptInput, context: ExecutionContext) -> BashScriptOutput:
+        _reject_language_mismatch(inputs, "bash")
         return _run_script("bash", inputs, context, BashScriptOutput)
 
 
