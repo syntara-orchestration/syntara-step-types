@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import signal
 from concurrent.futures import ThreadPoolExecutor
@@ -20,8 +21,33 @@ from syntara_plugin.runtime import (
 
 from syntara_node_http_request import HttpRequestStep
 
-STEP_IDENTITY = "syntara.step.http-request:0.1.0"
+_REGISTRATION_MANIFEST = Path("/opt/syntara/registration-manifest.json")
+_FALLBACK_IDENTITY = "syntara.step.http-request:0.1.0"
 GRPC_ADDRESS = "0.0.0.0:50051"
+
+
+def _step_identity() -> str:
+    """Derive the step identity from the image's registration manifest.
+
+    The execution plane validates that the workload's Health response
+    advertises the step revision the platform selected, which is the
+    ``stepIdentity`` the plugin build bakes into the image. Fall back to a
+    local default when the manifest is absent (e.g. bare local runs).
+    """
+    try:
+        document = json.loads(_REGISTRATION_MANIFEST.read_text(encoding="utf-8"))
+        steps = document.get("steps")
+        if isinstance(steps, dict):
+            for step in steps.values():
+                identity = step.get("stepIdentity") if isinstance(step, dict) else None
+                if isinstance(identity, str) and identity:
+                    return identity
+    except (OSError, json.JSONDecodeError):
+        pass
+    return _FALLBACK_IDENTITY
+
+
+STEP_IDENTITY = _step_identity()
 
 
 def main() -> None:

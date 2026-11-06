@@ -18,12 +18,12 @@ build:
     engine: podman
     context: .
     containerfile: http-request/Containerfile
-    tag: 0.1.0
+    tag: 0.1.2
     platform: linux/amd64
     imageId: http-request-runner
 
 publish:
-  channel: 0.1.0
+  channel: 0.1.2
   updateCatalog: true
 
 catalog:

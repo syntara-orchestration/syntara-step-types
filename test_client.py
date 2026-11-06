@@ -162,6 +162,7 @@ async def call_http_step(
     query_params: dict[str, str] | None = None,
     body: Any = None,
     timeout: int = 30,
+    follow_redirects: bool = False,
 ) -> dict[str, Any]:
     """Call the HTTP request step container.
 
@@ -174,6 +175,7 @@ async def call_http_step(
         query_params: Query parameters
         body: Request body
         timeout: Timeout in seconds
+        follow_redirects: Whether to follow HTTP redirects
 
     Returns:
         HTTP response result
@@ -190,6 +192,7 @@ async def call_http_step(
         "headers": headers or {},
         "query_params": query_params or {},
         "body": body,
+        "follow_redirects": follow_redirects,
     }
 
     inputs_json = json.dumps(inputs).encode("utf-8")
@@ -215,6 +218,7 @@ async def call_http_step(
         print(f"\nCalling HTTP request container at {host}:{port}")
         print(f"  Method: {method}")
         print(f"  URL: {url}")
+        print(f"  Follow redirects: {follow_redirects}")
 
         # Call Execute RPC (returns a stream)
         stream = stub.Execute(request, timeout=timeout + 5)
@@ -326,6 +330,25 @@ async def test_http_examples():
         method="POST",
         headers={"Content-Type": "application/json"},
         body={"message": "Hello from container!", "timestamp": "2024-01-01"},
+    )
+
+    # Example 4: Redirect handling — same URL, follow_redirects toggled
+    print("\n\n--- Example 4: Redirect Handling (follow_redirects=False) ---")
+    await call_http_step(
+        host="localhost",
+        port=50052,
+        url="https://httpbin.org/redirect/2",
+        method="GET",
+        follow_redirects=False,
+    )
+
+    print("\n\n--- Example 5: Redirect Handling (follow_redirects=True) ---")
+    await call_http_step(
+        host="localhost",
+        port=50052,
+        url="https://httpbin.org/redirect/2",
+        method="GET",
+        follow_redirects=True,
     )
 
 

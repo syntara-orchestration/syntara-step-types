@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   namespace: syntara
   name: http-request
-  version: 0.1.0
+  version: 0.1.2
   displayName: HTTP Request
   description: Makes an outbound HTTP request from a container step.
 spec:
