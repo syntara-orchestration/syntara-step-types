@@ -52,11 +52,27 @@ export AO_API_BASE
 # The aap-dev ingress serves a self-signed certificate.
 export AO_API_CA_FILE="${AO_API_CA_FILE:-}"
 
+_ensure_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "=== Installing uv ==="
+  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="${HOME}/.local/bin:${PATH}"
+  command -v uv >/dev/null 2>&1
+}
+
+if ! _ensure_uv; then
+  echo "ERROR: uv is required to run the dispatch e2e" >&2
+  exit 1
+fi
+
 echo "==> Running syntara-step-types dispatch e2e against ${AO_API_BASE}"
 mkdir -p "${RESULTS_DIR}"
 
 AO_ADMIN_PASSWORD="$(_ao_admin_password)" \
-  uv run --frozen --all-packages pytest "${E2E_DIR}" -v -m e2e \
+  uv run --no-project --with "pytest>=8" --with "httpx>=0.28" -- \
+    pytest "${E2E_DIR}" -v -m e2e \
     --junitxml="${RESULTS_DIR}/e2e-junit.xml"
 
 echo "==> e2e results written to ${RESULTS_DIR}/e2e-junit.xml"
