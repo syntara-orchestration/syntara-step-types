@@ -85,19 +85,11 @@ def test_python_integer_json_precision(
     assert output.stdout_json == {"id": 1152921504606846977, "empty": None}
 
 
-def test_script_language_is_fixed_by_plugin(context) -> None:
-    from syntara_node_script import BashScriptStep, PythonScriptStep
-    from syntara_plugin.runtime import StepFailure
+def test_script_language_is_fixed_by_plugin() -> None:
+    from pydantic import ValidationError
 
-    # The legacy AO language marker is accepted for compatibility, but the
-    # language stays fixed by the plugin: a mismatching marker is a
-    # non-retryable step failure at run() time, never honored.
-    ScriptInput(code="printf hello", language="python")
-    ScriptInput(code="printf hello", language="bash")
-    with pytest.raises(StepFailure):
-        PythonScriptStep().run(ScriptInput(code="x = 1", language="bash"), context)
-    with pytest.raises(StepFailure):
-        BashScriptStep().run(ScriptInput(code="printf hello", language="python"), context)
+    with pytest.raises(ValidationError):
+        ScriptInput(code="printf hello", language="bash")
 
 
 @pytest.mark.parametrize("limit", [0, 1_048_577, 1_073_741_824])
