@@ -1,0 +1,66 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: 'true'
+    pipelinesascode.tekton.dev/max-keep-runs: '3'
+    pipelinesascode.tekton.dev/on-cel-expression: >-
+      event == "push" && target_branch == "devel" &&
+      files.all.exists(x,
+        x.startsWith("script-bash/") ||
+        x.startsWith("script-runtime/") ||
+        x == "http-request/pyproject.toml" ||
+        x == "pyproject.toml" ||
+        x == "uv.lock" ||
+        ".tekton/ansible-automation-orchestrator-step-types-script-bash-devel-push.yaml".pathChanged())
+  creationTimestamp: null
+  labels:
+    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
+    appstudio.openshift.io/component: ansible-automation-orchestrator-step-types-script-bash-devel
+    pipelines.appstudio.openshift.io/type: build
+  name: ansible-automation-orchestrator-step-types-script-bash-devel-on-push
+  namespace: nexus-tenant
+spec:
+  params:
+    - name: git-url
+      value: '{{repo_url}}'
+    - name: revision
+      value: '{{revision}}'
+    - name: output-image
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/syntara-step-types-script-bash:{{revision}}
+    - name: dockerfile
+      value: script-bash/Containerfile
+    - name: path-context
+      value: .
+    - name: build-args
+      value: []
+    - name: build-platforms
+      value:
+        - linux-c4xlarge/amd64
+        - linux-c4xlarge/arm64
+    - name: hermetic
+      value: 'false'
+    - name: prefetch-input
+      value: '[]'
+  pipelineRef:
+    params:
+      - name: name
+        value: container
+      - name: bundle
+        value: quay.io/aap-ci/tekton-catalog/pipeline/build/container:0.2@sha256:85e23e713364af6bed2c0e1c69cb2a49845e64d30cd7dd7ca32341d992cc1449
+      - name: kind
+        value: pipeline
+      - name: secret
+        value: quay-aap-ci-viewer
+    resolver: bundles
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-ansible-automation-orchestrator-step-types-script-bash-devel
+  workspaces:
+    - name: git-auth
+      secret:
+        secretName: '{{ git_auth_secret }}'
+status: {}
