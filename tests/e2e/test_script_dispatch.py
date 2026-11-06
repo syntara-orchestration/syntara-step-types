@@ -13,6 +13,7 @@ aap-dev staging hooks).
 
 from __future__ import annotations
 
+import os
 import uuid
 
 import pytest
@@ -132,3 +133,55 @@ def test_script_python_chain_second_failure_fails_execution(ao_api: AoApi, e2e_p
     boom = _activities(execution)["boom"]
     output = _output_data(boom)
     assert output.get("return_code") == 3, f"activity output: {output}"
+
+
+def _ep_result(item: dict) -> dict:
+    result = item.get("result") or {}
+    if isinstance(result, dict):
+        return result
+    return {}
+
+
+@pytest.mark.skipif(
+    not os.environ.get("EP_API_URL") or not os.environ.get("EP_TOOLS_DIR"),
+    reason="direct Execution Plane dispatch needs EP_API_URL and EP_TOOLS_DIR",
+)
+def test_script_python_plugin_dispatches_via_execution_plane() -> None:
+    """script-python plugin image, direct dispatch: example workload returns 42."""
+
+    from tests.e2e.ep_direct import dispatch_plugin_workload
+
+    image = os.environ["SYNTARA_NODE_SCRIPT_PYTHON_IMAGE"]
+    item = dispatch_plugin_workload(
+        step_revision_id="syntara.script-python.script-python",
+        image=image,
+        inputs={"code": "import json\nprint(json.dumps({'result': 42}))"},
+    )
+    assert item.get("status") == "completed", f"work item: {item}"
+    output = _ep_result(item).get("output") or {}
+    assert output.get("return_code") == 0, f"output: {output}"
+    stdout_json = output.get("stdout_json") or {}
+    assert stdout_json.get("result") == 42, f"output: {output}"
+    assert item.get("retry_count", 0) == 0, f"work item retried: {item}"
+
+
+@pytest.mark.skipif(
+    not os.environ.get("EP_API_URL") or not os.environ.get("EP_TOOLS_DIR"),
+    reason="direct Execution Plane dispatch needs EP_API_URL and EP_TOOLS_DIR",
+)
+def test_script_bash_plugin_dispatches_via_execution_plane() -> None:
+    """script-bash plugin image, direct dispatch: example workload prints its greeting."""
+
+    from tests.e2e.ep_direct import dispatch_plugin_workload
+
+    image = os.environ["SYNTARA_NODE_SCRIPT_BASH_IMAGE"]
+    item = dispatch_plugin_workload(
+        step_revision_id="syntara.script-bash.script-bash",
+        image=image,
+        inputs={"code": "printf hello from bash"},
+    )
+    assert item.get("status") == "completed", f"work item: {item}"
+    output = _ep_result(item).get("output") or {}
+    assert output.get("return_code") == 0, f"output: {output}"
+    assert output.get("stdout") == "hello from bash", f"output: {output}"
+    assert item.get("retry_count", 0) == 0, f"work item retried: {item}"

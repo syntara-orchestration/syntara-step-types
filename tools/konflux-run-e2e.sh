@@ -67,7 +67,59 @@ if ! _ensure_uv; then
   exit 1
 fi
 
-echo "==> Running syntara-step-types dispatch e2e against ${AO_API_BASE}"
+_secret_to_file() {
+  local secret=$1 namespace=$2 key=$3 dest=$4
+  kubectl get secret "${secret}" -n "${namespace}" -o json | python3 -c "
+import base64, json, sys
+secret = json.load(sys.stdin)
+key = sys.argv[1]
+dest = sys.argv[2]
+data = secret.get('data') or {}
+if key not in data:
+    raise SystemExit(f'secret is missing key {key}')
+open(dest, 'wb').write(base64.b64decode(data[key]))
+" "${key}" "${dest}"
+  chmod 600 "${dest}"
+}
+
+_ep_api_reachable() {
+  local base=$1 code
+  code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 8 "${base}/healthz/ready" || true)
+  [[ "${code}" == "200" || "${code}" == "204" ]]
+}
+
+_ep_api_url() {
+  local base="${EP_API_URL:-}"
+  if [[ -n "${base}" ]] && _ep_api_reachable "${base}"; then
+    printf '%s' "${base}"
+    return 0
+  fi
+  echo "port-forwarding ${AO_NAMESPACE}/svc/myao-execution-plane-api to 127.0.0.1:18443" >&2
+  kubectl port-forward -n "${AO_NAMESPACE}" svc/myao-execution-plane-api 18443:8443 >/tmp/ep-api-pf.log 2>&1 &
+  sleep 4
+  printf '%s' "https://127.0.0.1:18443"
+}
+
+# Direct Execution Plane dispatch for the plugin images: the AO JWT private
+# key (operator-generated), the EP API, the EP checkout's submit tool, and
+# the plugin image references aap-dev recorded at build time.
+EP_JWT_FILE="${EP_AO_JWT_PRIVATE_KEY_FILE:-/tmp/step-types-e2e-jwt-primary.pem}"
+_secret_to_file myao-jwt-primary "${AO_NAMESPACE}" jwt-primary.pem "${EP_JWT_FILE}"
+export EP_AO_JWT_PRIVATE_KEY_FILE="${EP_JWT_FILE}"
+export EP_API_URL="$(_ep_api_url)"
+export EP_TOOLS_DIR="${EP_TOOLS_DIR:-${HOME}/syntara-execution-plane}"
+
+AAP_DEV_TMP="${HOME}/aap-dev/.tmp"
+for plugin in script-python script-bash; do
+  ref_file="${AAP_DEV_TMP}/ao-sdk-script-step-${plugin}-image.txt"
+  if [[ -f "${ref_file}" ]]; then
+    export SYNTARA_NODE_$(echo "${plugin}" | tr 'a-z-' 'A-Z_')_IMAGE="$(tr -d '\r\n' < "${ref_file}")"
+  else
+    echo "==> No ${plugin} plugin image reference at ${ref_file}; its dispatch test will skip"
+  fi
+done
+
+echo "==> Running syntara-step-types dispatch e2e (AO: ${AO_API_BASE}, EP: ${EP_API_URL})"
 mkdir -p "${RESULTS_DIR}"
 
 AO_ADMIN_PASSWORD="$(_ao_admin_password)" \
