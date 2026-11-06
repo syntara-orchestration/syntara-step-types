@@ -38,6 +38,10 @@ test:
 test-integration:
 	$(UV) run --frozen --all-packages pytest -m integration
 
+.PHONY: test-e2e
+test-e2e: ## Run the dispatch e2e suite against a live AO + Execution Plane deployment
+	$(UV) run --frozen --all-packages pytest tests/e2e -v -m e2e
+
 .PHONY: test-all
 test-all:
 	$(UV) run --frozen --all-packages pytest
