@@ -69,13 +69,6 @@ def test_script_python_example_dispatches_and_completes(ao_api: AoApi, e2e_proje
     assert activity.get("retry_count", 0) == 0, f"activity retried: {activity}"
 
 
-@pytest.mark.skip(
-    reason=(
-        "AO maps one image per script node type; routing language to the split "
-        "plugin images (script-python vs script-bash) is AO follow-up work. "
-        "The wiring currently dispatches the script-python image only."
-    )
-)
 def test_script_bash_example_dispatches_and_completes(ao_api: AoApi, e2e_project_id) -> None:
     """script-bash: the example workload prints 'hello from bash'."""
 
