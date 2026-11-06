@@ -1,0 +1,47 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: 'true'
+    pipelinesascode.tekton.dev/max-keep-runs: '3'
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "devel"
+  labels:
+    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
+    pipelines.appstudio.openshift.io/type: test
+  name: syntara-step-types-tests-devel-pull-request
+  namespace: nexus-tenant
+spec:
+  timeouts:
+    pipeline: 2h
+    tasks: 90m
+    finally: 30m
+  params:
+  - name: git-url
+    value: '{{source_url}}'
+  - name: pipeline-github-org
+    value: '{{repo_owner}}'
+  - name: pipeline-github-repo
+    value: '{{repo_name}}'
+  - name: pipeline-github-pr-revision
+    value: '{{revision}}'
+  - name: pipeline-github-pr-number
+    value: '{{pull_request_number}}'
+  pipelineRef:
+    params:
+    - name: name
+      value: syntara-step-types-tests
+    # Pin the digest after the first 0.1 bundle is published.
+    - name: bundle
+      value: quay.io/aap-ci/tekton-catalog/pipeline/test/syntara-step-types-tests:0.1
+    - name: kind
+      value: pipeline
+    - name: secret
+      value: quay-aap-ci-viewer
+    resolver: bundles
+  taskRunTemplate:
+    serviceAccountName: konflux-integration-runner
