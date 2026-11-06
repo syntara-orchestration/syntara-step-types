@@ -5,24 +5,25 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "push" && target_branch == "devel" &&
+      event == "pull_request" && target_branch == "devel" &&
       files.all.exists(x,
         x.startsWith("script-bash/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ansible-automation-orchestrator-step-types-script-bash-devel-push.yaml".pathChanged())
+        ".tekton/automation-orchestrator-step-types-script-bash-rhel9-devel-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ansible-automation-orchestrator-step-types-script-bash-devel
+    appstudio.openshift.io/component: automation-orchestrator-step-types-script-bash-rhel9-devel
     pipelines.appstudio.openshift.io/type: build
-  name: ansible-automation-orchestrator-step-types-script-bash-devel-on-push
+  name: automation-orchestrator-step-types-script-bash-rhel9-devel-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -31,7 +32,9 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/syntara-step-types-script-bash:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/automation-orchestrator-step-types-script-bash-rhel9:on-pr-{{revision}}
+    - name: image-expires-after
+      value: 5d
     - name: dockerfile
       value: script-bash/Containerfile
     - name: path-context
@@ -58,7 +61,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ansible-automation-orchestrator-step-types-script-bash-devel
+    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-bash-rhel9-devel
   workspaces:
     - name: git-auth
       secret:

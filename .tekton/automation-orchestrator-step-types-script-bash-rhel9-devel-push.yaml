@@ -11,18 +11,18 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: >-
       event == "push" && target_branch == "devel" &&
       files.all.exists(x,
-        x.startsWith("script-python/") ||
+        x.startsWith("script-bash/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ansible-automation-orchestrator-step-types-script-python-devel-push.yaml".pathChanged())
+        ".tekton/automation-orchestrator-step-types-script-bash-rhel9-devel-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ansible-automation-orchestrator-step-types-script-python-devel
+    appstudio.openshift.io/component: automation-orchestrator-step-types-script-bash-rhel9-devel
     pipelines.appstudio.openshift.io/type: build
-  name: ansible-automation-orchestrator-step-types-script-python-devel-on-push
+  name: automation-orchestrator-step-types-script-bash-rhel9-devel-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -31,9 +31,9 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/syntara-step-types-script-python:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/automation-orchestrator-step-types-script-bash-rhel9:{{revision}}
     - name: dockerfile
-      value: script-python/Containerfile
+      value: script-bash/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -58,7 +58,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ansible-automation-orchestrator-step-types-script-python-devel
+    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-bash-rhel9-devel
   workspaces:
     - name: git-auth
       secret:

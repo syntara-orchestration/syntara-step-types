@@ -10,20 +10,20 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "pull_request" && target_branch == "early-access" &&
+      event == "pull_request" && target_branch == "devel" &&
       files.all.exists(x,
-        x.startsWith("script-bash/") ||
+        x.startsWith("script-python/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ansible-automation-orchestrator-step-types-script-bash-early-access-pull-request.yaml".pathChanged())
+        ".tekton/automation-orchestrator-step-types-script-python-rhel9-devel-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
-    appstudio.openshift.io/component: ansible-automation-orchestrator-step-types-script-bash-early-access
+    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
+    appstudio.openshift.io/component: automation-orchestrator-step-types-script-python-rhel9-devel
     pipelines.appstudio.openshift.io/type: build
-  name: ansible-automation-orchestrator-step-types-script-bash-early-access-on-pull-request
+  name: automation-orchestrator-step-types-script-python-rhel9-devel-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -32,11 +32,11 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/syntara-step-types-script-bash:on-pr-{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/automation-orchestrator-step-types-script-python-rhel9:on-pr-{{revision}}
     - name: image-expires-after
       value: 5d
     - name: dockerfile
-      value: script-bash/Containerfile
+      value: script-python/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -61,7 +61,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ansible-automation-orchestrator-step-types-script-bash-early-access
+    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-python-rhel9-devel
   workspaces:
     - name: git-auth
       secret:
