@@ -107,6 +107,12 @@ EP_JWT_FILE="${EP_AO_JWT_PRIVATE_KEY_FILE:-/tmp/step-types-e2e-jwt-primary.pem}"
 _secret_to_file myao-jwt-primary "${AO_NAMESPACE}" jwt-primary.pem "${EP_JWT_FILE}"
 export EP_AO_JWT_PRIVATE_KEY_FILE="${EP_JWT_FILE}"
 export EP_API_URL="$(_ep_api_url)"
+# The EP API serves the operator-generated certificate; the submit tool
+# verifies it against EP_API_CA_FILE (its default is the local-dev
+# .secrets/certs/ca.pem, which does not exist in a deployed environment).
+EP_CA_FILE="${EP_API_CA_FILE:-/tmp/step-types-e2e-ep-ca.pem}"
+_secret_to_file myao-execution-plane-api-tls "${AO_NAMESPACE}" ca.crt "${EP_CA_FILE}"
+export EP_API_CA_FILE="${EP_CA_FILE}"
 export EP_TOOLS_DIR="${EP_TOOLS_DIR:-${HOME}/syntara-execution-plane}"
 
 AAP_DEV_TMP="${HOME}/aap-dev/.tmp"

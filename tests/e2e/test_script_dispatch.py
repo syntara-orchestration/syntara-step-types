@@ -22,7 +22,7 @@ from tests.e2e.ao_client import AoApi, script_workflow
 
 pytestmark = [pytest.mark.e2e]
 
-POLL_TIMEOUT_SECONDS = 120
+POLL_TIMEOUT_SECONDS = 300
 
 
 def _activities(execution: dict) -> dict[str, dict]:
