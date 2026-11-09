@@ -53,10 +53,18 @@ See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS
 ## Runtime and SDK dependencies
 
 Step packages and workload images depend on `syntara-plugin-contracts` for runtime
-APIs. Container builds install version `0.1.0a2` by default; set
-`CONTRACTS_VERSION=...` when running `make node-images` or `make node-image` to select
-another release. The development dependency group also includes `syntara-plugin-sdk`
-for tests that compile and inspect plugin descriptors.
+APIs. Container builds install version `0.1.0a3` by default (aligned with
+Execution Plane); set `CONTRACTS_VERSION=...` when running `make node-images` or
+`make node-image` to select another release. The development dependency group also
+includes `syntara-plugin-sdk` for tests that compile and inspect plugin descriptors.
+
+AO ↔ plugin identity/output freezes for EP dispatch live in
+[`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) (AAP-95478).
+The reusable cutover checklist is
+[`docs/migration-pathway.md`](docs/migration-pathway.md).
+The product-image E2E proof (AAP-95478 I7) is
+[`docs/e2e-pathway-proof.md`](docs/e2e-pathway-proof.md)
+(`make aap95478-i7-probe`).
 
 ## Provenance
 

@@ -16,13 +16,20 @@ Plane at `/var/run/syntara/secrets/`. Runtime context (e.g. `outputSchemaDigest`
 carried in `runtime_context_json`. Large integers and null values are preserved by
 the JSON encoding.
 
-## Step identity
+## Step identity and revision
 
-Each step is registered under the identity produced by its compiled plugin target
-(e.g. `syntara.script-python.script-python`). The target version is carried separately
-and is not appended to this identity.
-The Execution Plane sends this string as `step_revision_id` in `ExecuteRequest`.
-The container's `StepRegistry` routes the request to the matching handler.
+Each step has a static identity `namespace.plugin.step`
+(for example `syntara.script-python.script-python`), taken from plugin metadata
+and the Action `metadata.name`. The target version is not appended to that identity.
+
+Health and Execute use the compiled revision: the `sha256:` digest of the compiled
+release. Both require that exact digest. The static identity is not a revision,
+and `*` is not an Execute value.
+
+Images that still register through `step_registry_from_bindings` advertise the
+static identity on Health. That listing is not the compiled revision. Cutover
+validation uses the digest from the registration manifest once the image runs
+the SDK server path.
 
 ## Connections and TLS
 

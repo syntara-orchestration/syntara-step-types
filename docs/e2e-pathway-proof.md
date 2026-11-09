@@ -1,0 +1,84 @@
+# AAP-95478 I7 — E2E pathway proof (product step-types → EP → AO)
+
+> Acceptance path for the reusable migration pathway.  
+> **Product images + identities** are required. Fixture-era `script.v1` /
+> `syntara-sdk-script` / `migration-test` are **not** sufficient acceptance.
+
+Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),
+[`migration-pathway.md`](migration-pathway.md).
+
+## What was proven locally (Phase 2 / I7)
+
+On branch `feat/AAP-95478-pathway-gates`:
+
+```bash
+make node-image NODE=script-python TAG=aap95478-i7
+# image: localhost/syntara-node-script-python:aap95478-i7
+# contracts pin inside image: syntara-plugin-contracts==0.1.0a3
+```
+
+Direct gRPC probe (no EP cluster). This run registered the static step identity through `step_registry_from_bindings`. It does not prove the compiled-revision Health and Execute gate in the compatibility matrix.
+
+1. Health advertised the static identity `syntara.script-python.script-python`
+2. Execute with inputs `{code, environment}` (**no** `language`) returned
+   business output:
+   - `return_code: 0`
+   - `stdout` / `stderr`
+   - `stdout_json: {"result": 42}`
+3. Wrapper keys (`statusCode`, `errorResult`) were **not** in the business
+   output object (they stay on the SDK `ContainerResult` envelope)
+
+Repeat anytime:
+
+```bash
+make aap95478-i7-probe TAG=aap95478-i7
+```
+
+## EP kind dispatch (optional, cluster required)
+
+```bash
+# after EP kind target is up (see syntara-execution-plane docs)
+kind load docker-image localhost/syntara-node-script-python:aap95478-i7 --name <ep-kind-name>
+
+# product payload helper (EP tools)
+cd ../syntara-execution-plane
+uv run python -m tools.submit_work_item \
+  --product-step-types \
+  --language python \
+  --image localhost/syntara-node-script-python:aap95478-i7 \
+  --code 'import json; print(json.dumps({"result": 42}))' \
+  --wait
+
+# or automated kind test
+EP_STEP_TYPES_IMAGE=localhost/syntara-node-script-python:aap95478-i7 \
+  uv run pytest tests/integration/kind/test_step_types_product_dispatch.py -m integration
+```
+
+Assert work item `completed` and result business fields include `return_code` /
+`stdout` / `stderr` (no wrapper keys in the AO-facing output object).
+
+## AO config (feat/AAP-95478-script-ep-identity)
+
+```yaml
+# settings / env equivalent
+script_nodes_enabled: true
+node_container_images:
+  script-python: localhost/syntara-node-script-python:aap95478-i7   # or Quay digest
+  script-bash: localhost/syntara-node-script-bash:<tag>
+```
+
+Run a workflow with a script node (`language=python`) and a downstream
+expression such as `${script_node.stdout}` / `${script_node.stdout_json.result}`.
+
+AO unit coverage for this mapping:
+`syntara/backend/tests/unit/workflows/activities/test_ep_script_result_namespace.py`.
+
+## Definition of done for I7
+
+- [x] Product `script-python` image builds with contracts `0.1.0a3`
+- [x] Health advertised the static identity `syntara.script-python.script-python` (identity-keyed registry; not the compiled-revision gate)
+- [x] Execute with stripped inputs returns frozen business fields
+- [x] EP tooling can submit product payloads (`--product-step-types`)
+- [x] EP unit test locks payload shape; optional kind test gated on `EP_STEP_TYPES_IMAGE`
+- [x] AO unit test proves `${script_node.*}` against business fields
+- [ ] Full AO Temporal + EP callback workflow in a shared environment (operator soak; same contracts)

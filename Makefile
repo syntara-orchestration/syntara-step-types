@@ -90,8 +90,12 @@ sdk-plugin-build-inspect: sdk-plugin-check
 	jq -e '.artifactDigest | test("^sha256:[0-9a-f]{64}$$")' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
 	$(UV) run --frozen --all-packages python .github/scripts/assert_plugin_archive.py "$(PLUGIN)" "$(SDK_WORKLOAD_TAG)"
 
+.PHONY: sdk-plugin-drift
+sdk-plugin-drift:
+	$(UV) run --frozen --all-packages pytest script-runtime/tests/test_plugin_settings.py -q
+
 .PHONY: sdk-plugin-ci
-sdk-plugin-ci: sdk-plugin-validate sdk-plugin-run sdk-plugin-build-inspect
+sdk-plugin-ci: sdk-plugin-validate sdk-plugin-run sdk-plugin-build-inspect sdk-plugin-drift
 
 .PHONY: node-images node-image
 node-images:
@@ -113,3 +117,11 @@ push-node-images:
 push-node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
 	$(CONTAINER_ENGINE) push $(REGISTRY)/syntara-node-$(NODE):$(TAG)
+
+# AAP-95478 I7: build (optional) + gRPC Health/Execute probe for product script-python.
+.PHONY: aap95478-i7-probe
+aap95478-i7-probe:
+	@test -n "$$SKIP_BUILD" || $(MAKE) node-image NODE=script-python TAG=$(TAG)
+	$(UV) run --frozen --all-packages python scripts/aap95478_i7_probe.py \
+		--engine "$(CONTAINER_ENGINE)" \
+		--image "$(REGISTRY)/syntara-node-script-python:$(TAG)"
