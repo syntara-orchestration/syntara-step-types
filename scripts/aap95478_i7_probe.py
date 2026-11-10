@@ -30,9 +30,7 @@ SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:+-]*$")
 def _validated_ref(value: str) -> str:
     """argparse type that rejects values parseable as engine flags."""
     if not SAFE_REF.fullmatch(value):
-        raise argparse.ArgumentTypeError(
-            f"must match {SAFE_REF.pattern!r}, got {value!r}"
-        )
+        raise argparse.ArgumentTypeError(f"must match {SAFE_REF.pattern!r}, got {value!r}")
     return value
 
 
