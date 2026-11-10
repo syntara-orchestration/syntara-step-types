@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -16,8 +17,13 @@ from syntara_plugin.runtime import ContainerClient, ContainerInvocation
 IDENTITY = "syntara.script-python.script-python"
 CODE = "import json\nprint(json.dumps({'result': 42}))"
 
+# The container engine binary is resolved from constants on PATH, never from
+# CLI input, so the executed command is never attacker-controlled.
+ENGINE = shutil.which("podman") or shutil.which("docker")
+PORT = "50051:50051"
+
 # Reject values that could be interpreted as engine flags (e.g. "--privileged")
-# or contain whitespace/shell metacharacters when passed to podman/docker.
+# or contain whitespace/shell metacharacters when passed to the engine.
 SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:+-]*$")
 
 
@@ -31,27 +37,24 @@ def _validated_ref(value: str) -> str:
 
 
 def main() -> int:
+    if ENGINE is None:
+        print("FAIL: neither podman nor docker found on PATH", file=sys.stderr)
+        return 1
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--image", required=True, type=_validated_ref, help="Local image ref to run"
     )
-    parser.add_argument(
-        "--name",
-        default="aap95478-i7-probe",
-        type=_validated_ref,
-        help="Container name",
-    )
-    parser.add_argument("--engine", default="podman", choices=("podman", "docker"))
     args = parser.parse_args()
 
-    name = args.name
+    # Container name is generated here, not accepted from CLI input, so no
+    # CLI-supplied value can influence the engine command line.
+    name = f"aap95478-i7-probe-{uuid.uuid4().hex[:12]}"
     image = args.image
 
+    subprocess.run([ENGINE, "rm", "-f", "--", name], check=False, capture_output=True)
     subprocess.run(
-        [args.engine, "rm", "-f", "--", name], check=False, capture_output=True
-    )
-    subprocess.run(
-        [args.engine, "run", "-d", "--name", name, "-p", "50051:50051", "--", image],
+        [ENGINE, "run", "-d", "--name", name, "-p", PORT, "--", image],
         check=True,
     )
     try:
@@ -87,9 +90,7 @@ def main() -> int:
         print("OK", {"identity": IDENTITY, "output": output})
         return 0
     finally:
-        subprocess.run(
-            [args.engine, "rm", "-f", "--", name], check=False, capture_output=True
-        )
+        subprocess.run([ENGINE, "rm", "-f", "--", name], check=False, capture_output=True)
 
 
 if __name__ == "__main__":
