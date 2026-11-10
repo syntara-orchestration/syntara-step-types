@@ -15,6 +15,8 @@ from syntara_plugin.runtime import add_container_runtime_service, step_registry_
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 from syntara_plugin.sdk import BuildRequest, compile_workspace
 
+from tests.integration.helpers import execute_events
+
 pytestmark = pytest.mark.integration
 
 
@@ -77,10 +79,9 @@ def test_execute_using_compiled_plugin_target(step, module_name, inputs, expecte
                     runtime_abi="syntara.container/v1alpha1",
                     inputs_json=json.dumps(inputs).encode(),
                     runtime_context_json=json.dumps({"outputSchemaDigest": output_digest}).encode(),
-                    credential_file_paths_json=b"{}",
                     timeout_seconds=5,
                 )
-                events = list(stub.Execute(request, timeout=5))
+                events = list(execute_events(stub, request, timeout=5))
                 assert len(events) == 1
                 assert events[0].HasField("result"), events[0]
                 assert events[0].result.output_schema_digest == output_digest

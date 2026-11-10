@@ -15,6 +15,8 @@ from syntara_node_http_request.__main__ import STEP_IDENTITY, create_bindings
 from syntara_plugin.runtime import add_container_runtime_service, step_registry_from_bindings
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
+from tests.integration.helpers import execute_events
+
 pytestmark = pytest.mark.integration
 
 
@@ -74,10 +76,9 @@ def test_http_timeout_and_503_errors_are_serialized_in_result_event() -> None:
                         {"url": f"{base_url}/{path}", "timeout_seconds": http_timeout}
                     ).encode(),
                     runtime_context_json=b"{}",
-                    credential_file_paths_json=b"{}",
                     timeout_seconds=10,
                 )
-                events = list(stub.Execute(request, timeout=12))
+                events = list(execute_events(stub, request, timeout=12))
                 results = [event.result for event in events if event.HasField("result")]
                 failures = [event.failure for event in events if event.HasField("failure")]
 

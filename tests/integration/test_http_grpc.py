@@ -7,7 +7,7 @@ import json
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.helpers import execute_output
+from tests.integration.helpers import execute_events, execute_output
 
 pytestmark = pytest.mark.integration
 
@@ -40,7 +40,6 @@ def _execute(
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps(inputs).encode(),
         runtime_context_json=b"{}",
-        credential_file_paths_json=b"{}",
         timeout_seconds=30,
     )
     return execute_output(stub, request, timeout=35)
@@ -88,10 +87,9 @@ def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceS
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"url": "http://192.168.1.1/secret"}).encode(),
         runtime_context_json=b"{}",
-        credential_file_paths_json=b"{}",
         timeout_seconds=10,
     )
-    for event in http_stub.Execute(request, timeout=15):
+    for event in execute_events(http_stub, request, timeout=15):
         if event.HasField("result"):
             assert event.result.status_code != 0
             error = json.loads(event.result.error_result_json)

@@ -83,7 +83,7 @@ Requirements:
 5. Health must advertise the **exact** compiled revision AO will submit.
    The static identity (`namespace.plugin.step`) is not that revision.
 6. Pin `syntara-plugin-contracts` to the same reviewed version as EP
-   (Phase 2 joint pin: **`0.1.0a3`**)
+   (Phase 2 joint pin: **`0.1.0a4`**)
 
 Copy an existing plugin (`script-python` or `http-request`) rather than
 scaffolding from scratch unless the SDK `syntara-plugin init` path matches

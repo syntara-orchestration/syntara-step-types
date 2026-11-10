@@ -14,7 +14,7 @@ On this branch (PR #22):
 ```bash
 make node-image NODE=script-python TAG=aap95478-i7
 # image: localhost/syntara-node-script-python:aap95478-i7
-# contracts pin inside image: syntara-plugin-contracts==0.1.0a3
+# contracts pin inside image: syntara-plugin-contracts==0.1.0a4
 ```
 
 Direct gRPC probe (no EP cluster). This run registered the static step identity through `step_registry_from_bindings`. It does not prove the compiled-revision Health and Execute gate in the compatibility matrix.
@@ -80,7 +80,7 @@ AO unit coverage for this mapping:
 
 ## Definition of done for I7
 
-- [x] Product `script-python` image builds with contracts `0.1.0a3`
+- [x] Product `script-python` image builds with contracts `0.1.0a4`
 - [x] Health advertised the static identity `syntara.script-python.script-python` (identity-keyed registry; not the compiled-revision gate)
 - [x] Execute with stripped inputs returns frozen business fields
 - [x] EP tooling can submit product payloads (`--product-step-types`)

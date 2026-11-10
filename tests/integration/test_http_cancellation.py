@@ -18,6 +18,8 @@ from syntara_plugin.runtime import (
 )
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
+from tests.integration.helpers import execute_events
+
 pytestmark = pytest.mark.integration
 
 
@@ -70,10 +72,9 @@ def test_http_cancel_stops_io_and_keeps_control_rpcs_available():
                     runtime_abi="syntara.container/v1alpha1",
                     inputs_json=json.dumps({"url": url}).encode(),
                     runtime_context_json=b"{}",
-                    credential_file_paths_json=b"{}",
                     timeout_seconds=5,
                 )
-                result = caller.submit(lambda: list(stub.Execute(request, timeout=5)))
+                result = caller.submit(lambda: list(execute_events(stub, request, timeout=5)))
                 assert started.wait(2), "HTTP request never reached the transport"
                 response = stub.Cancel(
                     container_pb2.CancelRequest(invocation_id=request.invocation_id), timeout=0.5

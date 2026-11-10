@@ -89,7 +89,6 @@ async def call_script_step(
 
     inputs_json = json.dumps(inputs).encode("utf-8")
     runtime_context_json = json.dumps({}).encode("utf-8")
-    credential_file_paths_json = json.dumps({}).encode("utf-8")
 
     # Create request
     request = container_pb2.ExecuteRequest(
@@ -99,7 +98,6 @@ async def call_script_step(
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=inputs_json,
         runtime_context_json=runtime_context_json,
-        credential_file_paths_json=credential_file_paths_json,
         timeout_seconds=timeout,
     )
 
@@ -112,9 +110,17 @@ async def call_script_step(
         print(f"  Code: {code[:100]}...")
 
         # Call Execute RPC (returns a stream)
-        stream = stub.Execute(request, timeout=timeout + 5)
+        stream = stub.Execute(
+            iter([container_pb2.ExecuteClientMessage(start=request)]),
+            timeout=timeout + 5,
+        )
 
-        async for event in stream:
+        async for message in stream:
+            if message.HasField("credential_request"):
+                raise RuntimeError(
+                    f"unexpected credential request: {message.credential_request.name}"
+                )
+            event = message.event
             if event.HasField("progress"):
                 progress = event.progress
                 print(f"📊 Progress: {progress.message}")
@@ -188,7 +194,6 @@ async def call_http_step(
 
     inputs_json = json.dumps(inputs).encode("utf-8")
     runtime_context_json = json.dumps({}).encode("utf-8")
-    credential_file_paths_json = json.dumps({}).encode("utf-8")
 
     # Create request
     request = container_pb2.ExecuteRequest(
@@ -198,7 +203,6 @@ async def call_http_step(
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=inputs_json,
         runtime_context_json=runtime_context_json,
-        credential_file_paths_json=credential_file_paths_json,
         timeout_seconds=timeout,
     )
 
@@ -211,9 +215,17 @@ async def call_http_step(
         print(f"  URL: {url}")
 
         # Call Execute RPC (returns a stream)
-        stream = stub.Execute(request, timeout=timeout + 5)
+        stream = stub.Execute(
+            iter([container_pb2.ExecuteClientMessage(start=request)]),
+            timeout=timeout + 5,
+        )
 
-        async for event in stream:
+        async for message in stream:
+            if message.HasField("credential_request"):
+                raise RuntimeError(
+                    f"unexpected credential request: {message.credential_request.name}"
+                )
+            event = message.event
             if event.HasField("progress"):
                 progress = event.progress
                 print(f"Progress: {progress.message}")

@@ -53,7 +53,7 @@ See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS
 ## Runtime and SDK dependencies
 
 Step packages and workload images depend on `syntara-plugin-contracts` for runtime
-APIs. Container builds install version `0.1.0a3` by default (aligned with
+APIs. Container builds install version `0.1.0a4` by default (aligned with
 Execution Plane); set `CONTRACTS_VERSION=...` when running `make node-images` or
 `make node-image` to select another release. The development dependency group also
 includes `syntara-plugin-sdk` for tests that compile and inspect plugin descriptors.
