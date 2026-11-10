@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 import time
@@ -15,6 +16,19 @@ from syntara_plugin.runtime import ContainerClient, ContainerInvocation
 IDENTITY = "syntara.script-python.script-python"
 CODE = "import json\nprint(json.dumps({'result': 42}))"
 
+# Reject values that could be interpreted as engine flags (e.g. "--privileged")
+# or contain whitespace/shell metacharacters when passed to podman/docker.
+SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:+-]*$")
+
+
+def _validate(value: str, option: str) -> str:
+    if not SAFE_REF.fullmatch(value):
+        parser_error = argparse.ArgumentTypeError(
+            f"{option} must match {SAFE_REF.pattern!r}, got {value!r}"
+        )
+        raise SystemExit(f"error: {parser_error}")
+    return value
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -23,9 +37,14 @@ def main() -> int:
     parser.add_argument("--engine", default="podman", choices=("podman", "docker"))
     args = parser.parse_args()
 
-    subprocess.run([args.engine, "rm", "-f", args.name], check=False, capture_output=True)
+    name = _validate(args.name, "--name")
+    image = _validate(args.image, "--image")
+
     subprocess.run(
-        [args.engine, "run", "-d", "--name", args.name, "-p", "50051:50051", args.image],
+        [args.engine, "rm", "-f", "--", name], check=False, capture_output=True
+    )
+    subprocess.run(
+        [args.engine, "run", "-d", "--name", name, "-p", "50051:50051", "--", image],
         check=True,
     )
     try:
@@ -61,7 +80,9 @@ def main() -> int:
         print("OK", {"identity": IDENTITY, "output": output})
         return 0
     finally:
-        subprocess.run([args.engine, "rm", "-f", args.name], check=False, capture_output=True)
+        subprocess.run(
+            [args.engine, "rm", "-f", "--", name], check=False, capture_output=True
+        )
 
 
 if __name__ == "__main__":
