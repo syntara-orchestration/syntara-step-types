@@ -1,7 +1,7 @@
 # AO ↔ SDK ↔ EP compatibility matrix
 
-> Phase A deliverable for [AAP-95478](https://redhat.atlassian.net/browse/AAP-95478).  
-> Script rows are **filled** against AO `feat/ANSTRAT-1803` + step-types `devel`.  
+> Phase A deliverable for AAP-95478.  
+> Script rows are **filled** against AO `devel` + step-types `devel`.  
 > HTTP / agentic / AAP rows are **stubs** (AO contract frozen; EP cutover not done).  
 > Schema dialect: JSON Schema **2020-12** (SDK and AO). The execution result stays a `StandardOutputWrapper`. AO expression namespaces use an interim projection of that wrapper (see Envelope rule). Do not publish `statusCode`, `statusMessage`, or `errorResult` as template fields.
 
@@ -73,6 +73,15 @@ AO keeps a **single** node type `script` with `language: python|bash`. Step-type
 
 The interim AO projection also requires `status: "completed"` on the completed path. The failed path may null business fields and set `error`.
 
+<!-- Machine-checked output freeze (see tests/test_matrix_drift.py). Do not
+edit without updating script-python/manifest.yaml. -->
+```yaml
+output_freeze:
+  plugin: script-python
+  required: [return_code, stdout, stderr]
+  optional: [stdout_json]
+```
+
 **Failure mapping (summary)**
 
 | Layer | Behavior |
@@ -96,6 +105,15 @@ The interim AO projection also requires `status: "completed"` on the completed p
 | AO image map key (target) | `script-bash` |
 | Same input strip rules as Python | yes |
 | **Output freeze** | `return_code`, `stdout`, `stderr` only (**no** `stdout_json` in plugin schema) |
+
+<!-- Machine-checked output freeze (see tests/test_matrix_drift.py). Do not
+edit without updating script-bash/manifest.yaml. -->
+```yaml
+output_freeze:
+  plugin: script-bash
+  required: [return_code, stdout, stderr]
+  optional: []
+```
 
 ---
 
@@ -131,6 +149,15 @@ The interim AO projection also requires `status: "completed"` on the completed p
 | `elapsed` | number |
 
 Plus the interim AO envelope: `status`, and `error` on the failed path.
+
+<!-- Machine-checked output freeze (see tests/test_matrix_drift.py). Do not
+edit without updating http-request/manifest.yaml. -->
+```yaml
+output_freeze:
+  plugin: http-request
+  required: [status_code, body, headers, elapsed]
+  optional: []
+```
 
 ---
 
@@ -210,9 +237,8 @@ Plus the interim AO envelope: `status`, and `error` on the failed path.
 
 | Layer | Source |
 |---|---|
-| AO schemas | `feat/ANSTRAT-1803` → `backend/src/syntara/schemas/workflows/v2/executors/{script,http_request,agentic,aap_*}.schema.json` |
-| AO output models | `…/workflow_definition.py` → `ScriptOutput`, `HttpRequestOutput`, `AgenticOutput`, `AAP*Output` |
-| AO dispatch | `…/activities/ep/ep_dispatch_activity.py`, `node_container_images`, `script_nodes_enabled` |
-| Step plugins | `script-python/`, `script-bash/`, `http-request/` manifests + `Makefile` / `.tekton` |
-| EP protocol | `syntara-execution-plane` `docs/workload-protocol.md`, `docs/integration.md` |
-| Plan | `/home/anferrei/Documents/RedHat/AAP-95478-plan.md` (Phase A / I1)
+| AO schemas | `syntara/backend/src/syntara/schemas/workflows/v2/executors/{script,http_request,agentic,aap_*}.schema.json` (AO `devel`) |
+| AO output models | `…/workflow_definition.py` → `ScriptOutput`, `HttpRequestOutput`, `AgenticOutput`, `AAP*Output` (AO `devel`) |
+| AO dispatch | `…/workflows/workflow_engine/activities/ep/ep_dispatch_activity.py`, `node_container_images`, `script_nodes_enabled` (AO `devel`) |
+| Step plugins | `script-python/`, `script-bash/`, `http-request/` manifests + `Makefile` / `.tekton` (this repo, `devel`) |
+| EP protocol | `syntara-execution-plane` `docs/workload-protocol.md`, `docs/integration.md` (EP `devel`) |

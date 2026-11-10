@@ -64,7 +64,7 @@ The reusable cutover checklist is
 [`docs/migration-pathway.md`](docs/migration-pathway.md).
 The product-image E2E proof (AAP-95478 I7) is
 [`docs/e2e-pathway-proof.md`](docs/e2e-pathway-proof.md)
-(`make aap95478-i7-probe`).
+(gRPC integration tests under `tests/integration/`).
 
 ## Provenance
 

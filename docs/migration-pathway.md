@@ -1,7 +1,7 @@
 # Migration pathway: GA step types → Plugin SDK → Execution Plane
 
-> Playbook for [AAP-95478](https://redhat.atlassian.net/browse/AAP-95478) / [ANSTRAT-2523](https://redhat.atlassian.net/browse/ANSTRAT-2523).  
-> Golden reference: AO script dispatch on `feat/ANSTRAT-1803` (as aligned in Phase 2) + the plugins in this repo (`http-request`, `script-python`, `script-bash`).  
+> Playbook for AAP-95478 / ANSTRAT-2523.  
+> Golden reference: AO script dispatch on `devel` + the plugins in this repo (`http-request`, `script-python`, `script-bash`).  
 > Normative I/O freezes: [`compatibility-matrix.md`](compatibility-matrix.md).  
 > Runtime ABI details: [`runtime.md`](runtime.md).
 
@@ -15,7 +15,7 @@ the same steps when ready.
 | Layer | Owns | Does not own |
 |---|---|---|
 | **Step package (this repo)** | `plugin.yaml` / Action manifest, Pydantic models, `ActionStep.run()`, Containerfile, examples, unit/integration tests | Workflow catalog, Temporal, cluster scheduling |
-| **SDK (`syntara-step-sdk` / `syntara-plugin-contracts`)** | Manifest schemas (JSON Schema **2020-12**), `StandardOutputWrapper`, gRPC `syntara.container/v1alpha1`, CLI validate/run/build, harness | Product image publishing, AO expressions |
+| **SDK (`syntara-plugin-sdk` / `syntara-plugin-contracts`)** | Manifest schemas (JSON Schema **2020-12**), `StandardOutputWrapper`, gRPC `syntara.container/v1alpha1`, CLI validate/run/build, harness | Product image publishing, AO expressions |
 | **Execution Plane** | `work.execute`, Health→Execute fence, result persist, cancel, `work.execute.completed` callback | Plugin discovery, step I/O schema validation, `${node.field}` evaluation |
 | **Automation Orchestrator** | Node `parameterSchema` / `resultSchema`, expression namespaces, image map, enable flags, `WorkExecute` submit, callback→Temporal, credential resolve policy | In-image step implementation |
 
@@ -102,7 +102,7 @@ Before `WorkExecute`:
 
 Script golden mapping is already documented in the compatibility matrix.
 
-### 4. Wire AO dispatch (clone the 1803 script spine)
+### 4. Wire AO dispatch (clone the script spine)
 
 Reference implementation:
 `syntara/backend/src/syntara/workflows/workflow_engine/activities/ep/ep_dispatch_activity.py`.
@@ -145,7 +145,7 @@ binding/outbox narratives.
 # from syntara-step-types
 make sdk-plugin-validate PLUGIN=<plugin>
 make sdk-plugin-run PLUGIN=<plugin>
-make sdk-plugin-drift          # model↔manifest binding checks for all plugins
+make sdk-plugin-drift          # compatibility-matrix output freeze ↔ manifest checks
 # unit tests for the package / shared runtime
 ```
 
@@ -219,6 +219,6 @@ are **not** sufficient acceptance for a product cutover.
 | E2E pathway proof (I7) | [`docs/e2e-pathway-proof.md`](e2e-pathway-proof.md) |
 | Runtime / gRPC ABI | [`docs/runtime.md`](runtime.md) |
 | SDK verification notes | [`SDK_VERIFICATION.md`](../SDK_VERIFICATION.md) |
-| SDK authoring guide | `syntara-step-sdk/docs/authoring-guide.md` |
+| SDK authoring guide | `syntara-plugin-sdk/docs/authoring-guide.md` |
 | AO EP integration | `syntara/backend/docs/execution-plane/integration.md` |
 | EP workload protocol | `syntara-execution-plane/docs/workload-protocol.md` |

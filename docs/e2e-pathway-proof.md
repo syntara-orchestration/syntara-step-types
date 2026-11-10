@@ -9,7 +9,7 @@ Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),
 
 ## What was proven locally (Phase 2 / I7)
 
-On branch `feat/AAP-95478-pathway-gates`:
+On this branch (PR #22):
 
 ```bash
 make node-image NODE=script-python TAG=aap95478-i7
@@ -28,11 +28,16 @@ Direct gRPC probe (no EP cluster). This run registered the static step identity 
 3. Wrapper keys (`statusCode`, `errorResult`) were **not** in the business
    output object (they stay on the SDK `ContainerResult` envelope)
 
-Repeat anytime:
+Repeat anytime — the gRPC integration tests assert Health identity, the
+frozen business fields, and the absence of wrapper keys for both python and
+bash:
 
 ```bash
-make aap95478-i7-probe TAG=aap95478-i7
+make node-image NODE=script-python TAG=aap95478-i7
+make test-integration
 ```
+
+See `tests/integration/test_script_grpc.py`.
 
 ## EP kind dispatch (optional, cluster required)
 
@@ -57,7 +62,7 @@ EP_STEP_TYPES_IMAGE=localhost/syntara-node-script-python:aap95478-i7 \
 Assert work item `completed` and result business fields include `return_code` /
 `stdout` / `stderr` (no wrapper keys in the AO-facing output object).
 
-## AO config (feat/AAP-95478-script-ep-identity)
+## AO config
 
 ```yaml
 # settings / env equivalent

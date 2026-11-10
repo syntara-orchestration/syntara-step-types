@@ -14,6 +14,16 @@ from tests.integration.helpers import execute_output
 
 pytestmark = pytest.mark.integration
 
+# Wrapper keys stay on the SDK ContainerResult envelope; they must never leak
+# into the business output object AO projects into ${node_id.*} namespaces.
+_WRAPPER_KEYS = ("statusCode", "statusMessage", "errorResult")
+
+
+def _assert_business_output(result: dict) -> None:
+    for key in _WRAPPER_KEYS:
+        assert key not in result, f"wrapper key {key!r} leaked into business output"
+
+
 _PYTHON_STEP_REVISION_ID = "syntara.script-python.script-python"
 _BASH_STEP_REVISION_ID = "syntara.script-bash.script-bash"
 _RUNTIME_ABI = "syntara.container/v1alpha1"
@@ -60,6 +70,7 @@ def test_python_print(python_script_stub: container_pb2_grpc.ContainerServiceStu
     )
     assert result["return_code"] == 0
     assert "hello from python" in result["stdout"]
+    _assert_business_output(result)
 
 
 def test_bash_echo(bash_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
@@ -71,6 +82,7 @@ def test_bash_echo(bash_script_stub: container_pb2_grpc.ContainerServiceStub) ->
     assert result["return_code"] == 0
     assert "hello from bash" in result["stdout"]
     assert "stdout_json" not in result
+    _assert_business_output(result)
 
 
 def test_environment_variables(python_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
