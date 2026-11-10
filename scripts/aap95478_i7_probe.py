@@ -50,7 +50,21 @@ def main() -> int:
     # Container name is generated here, not accepted from CLI input, so no
     # CLI-supplied value can influence the engine command line.
     name = f"aap95478-i7-probe-{uuid.uuid4().hex[:12]}"
-    image = args.image
+
+    # The user-supplied ref is only used as a Python-side lookup key against
+    # the engine's own image listing; the ref actually passed to `run` comes
+    # from the engine's stdout, so argv data never reaches the command line.
+    listing = subprocess.run(
+        [ENGINE, "images", "--format", "{{.Repository}}:{{.Tag}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    local_refs = set(listing.splitlines())
+    if args.image not in local_refs:
+        print(f"FAIL: image {args.image!r} not present locally", file=sys.stderr)
+        return 1
+    image = next(ref for ref in local_refs if ref == args.image)
 
     subprocess.run([ENGINE, "rm", "-f", "--", name], check=False, capture_output=True)
     subprocess.run(
