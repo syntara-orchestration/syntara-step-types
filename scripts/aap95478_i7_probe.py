@@ -21,24 +21,31 @@ CODE = "import json\nprint(json.dumps({'result': 42}))"
 SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:+-]*$")
 
 
-def _validate(value: str, option: str) -> str:
+def _validated_ref(value: str) -> str:
+    """argparse type that rejects values parseable as engine flags."""
     if not SAFE_REF.fullmatch(value):
-        parser_error = argparse.ArgumentTypeError(
-            f"{option} must match {SAFE_REF.pattern!r}, got {value!r}"
+        raise argparse.ArgumentTypeError(
+            f"must match {SAFE_REF.pattern!r}, got {value!r}"
         )
-        raise SystemExit(f"error: {parser_error}")
     return value
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--image", required=True, help="Local image ref to run")
-    parser.add_argument("--name", default="aap95478-i7-probe", help="Container name")
+    parser.add_argument(
+        "--image", required=True, type=_validated_ref, help="Local image ref to run"
+    )
+    parser.add_argument(
+        "--name",
+        default="aap95478-i7-probe",
+        type=_validated_ref,
+        help="Container name",
+    )
     parser.add_argument("--engine", default="podman", choices=("podman", "docker"))
     args = parser.parse_args()
 
-    name = _validate(args.name, "--name")
-    image = _validate(args.image, "--image")
+    name = args.name
+    image = args.image
 
     subprocess.run(
         [args.engine, "rm", "-f", "--", name], check=False, capture_output=True
