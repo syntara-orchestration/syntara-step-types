@@ -7,9 +7,9 @@
 Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),
 [`migration-pathway.md`](migration-pathway.md).
 
-## What was proven locally (Phase 2)
+## What was proven locally
 
-On this branch (PR #22):
+On this branch:
 
 ```bash
 make node-image NODE=script-python TAG=pathway-proof
@@ -33,8 +33,8 @@ frozen business fields, and the absence of wrapper keys for both python and
 bash:
 
 ```bash
-make node-image NODE=script-python TAG=pathway-proof
-make test-integration
+make node-images TAG=pathway-proof
+TEST_TAG=pathway-proof make test-integration
 ```
 
 See `tests/integration/test_script_grpc.py`.

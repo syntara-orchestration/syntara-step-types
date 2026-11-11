@@ -84,10 +84,12 @@ Requirements:
 5. Declare each logical workload in `plugin.yaml` `spec.workloads.<id>` and its
    image options in `runtime-bindings.yaml`; build targets live under
    `build.workloads` in `syntara-plugin.yaml`
-6. Health must advertise the **exact** compiled revision AO will submit.
-   The static identity (`namespace.plugin.step`) is not that revision.
+6. Health must advertise the **exact** compiled revision AO will submit (target
+   state; today's `step_registry_from_bindings` images serve the static
+   identity, see [`runtime.md`](runtime.md)). The static identity
+   (`namespace.plugin.step`) is not that revision.
 7. Pin `syntara-plugin-contracts` to the same reviewed version as EP
-   (Phase 2 joint pin: **`0.1.0a4`**)
+   (joint pin: **`0.1.0a4`**)
 
 Copy an existing plugin (`script-python` or `http-request`) rather than
 scaffolding from scratch unless the SDK `syntara-plugin init` path matches
@@ -119,7 +121,7 @@ For each new EP-backed type, reuse this pattern:
 3. Resolve image from `settings.node_container_images[<plugin-key>]`
 4. Build `WorkloadInvocation`:
    - `workflow_run_id` from Temporal activity info
-   - revision field = compiled `sha256:` digest for that step identity, not the identity string
+   - revision field = compiled `sha256:` digest for that step identity, not the identity string (target state; today's images accept the static identity)
    - `inputs` = stripped plugin payload
    - `timeout_seconds` from engine/node timeout
 5. Stable work id: `uuid5(execution_id, temporal_activity_id)` (same as
@@ -132,7 +134,7 @@ For each new EP-backed type, reuse this pattern:
    `error`) thin; do not reshape business fields or publish wrapper keys.
 
 **Do not** silently fall back to in-process execution after an ambiguous EP
-submit (1803 isolation rule).
+submit (current AO isolation rule).
 
 External docs (sibling repos):
 
@@ -163,7 +165,9 @@ make node-image NODE=<plugin> TAG=<tag>
 # existing gRPC integration tests under tests/integration/
 ```
 
-Confirm Health lists the compiled revision for the product step identity, and
+Confirm Health lists the revision Execute accepts (the compiled digest on the
+resolved-revision path, the static identity on today's
+`step_registry_from_bindings` images; see [`runtime.md`](runtime.md)), and
 Execute accepts the stripped inputs from the matrix.
 
 ### 7. Prove on Execution Plane
@@ -182,7 +186,7 @@ Execute accepts the stripped inputs from the matrix.
 4. Assert namespaces match the matrix business fields after completion
 
 Fixture-era defaults (`script.v1`,
-`quay.io/ahetheri/syntara-node-script:migration-test`, EP `tests/fixtures/sdk_script`)
+the personal-namespace `migration-test` script image, EP `tests/fixtures/sdk_script`)
 are **not** sufficient acceptance for a product cutover.
 
 ### 9. Release
@@ -220,7 +224,7 @@ are **not** sufficient acceptance for a product cutover.
 | Doc | Location |
 |---|---|
 | Compatibility matrix | [`docs/compatibility-matrix.md`](compatibility-matrix.md) |
-| E2E pathway proof (I7) | [`docs/e2e-pathway-proof.md`](e2e-pathway-proof.md) |
+| E2E pathway proof | [`docs/e2e-pathway-proof.md`](e2e-pathway-proof.md) |
 | Runtime / gRPC ABI | [`docs/runtime.md`](runtime.md) |
 | SDK verification notes | [`SDK_VERIFICATION.md`](../SDK_VERIFICATION.md) |
 | SDK authoring guide | `syntara-plugin-sdk/docs/authoring-guide.md` |
