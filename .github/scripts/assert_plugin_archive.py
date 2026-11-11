@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import yaml
+from syntara_plugin.sdk.runtime_binding_archive import read_runtime_binding_archive
 
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IMAGE_REFERENCE = re.compile(r"^(.+)@(sha256:[0-9a-f]{64})$")
@@ -199,10 +200,7 @@ def _assert_plugin_identity(
 
 
 def _assert_workload_image(
-    source_plugin: dict[str, Any],
-    plugin_descriptor: dict[str, Any],
-    build_result: dict[str, Any],
-    image_reference: str,
+    source_plugin: dict[str, Any], plugin_descriptor: dict[str, Any]
 ) -> None:
     # The plugin archive names the workload; the image digest lives in the RuntimeBinding.
     source_spec = _mapping(source_plugin.get("spec"), "source plugin spec")
@@ -211,8 +209,34 @@ def _assert_workload_image(
     archived_workloads = _mapping(archived_spec.get("workloads"), "archived workloads")
     _mapping(archived_workloads.get(workload_id), "archived workload")
 
-    bindings = _mapping(build_result.get("workloads"), "runtime binding workloads")
-    binding = _mapping(bindings.get(workload_id), "runtime binding workload")
+
+def _assert_binding_archive(
+    plugin_directory: Path,
+    build_result: dict[str, Any],
+    workload_id: str,
+    image_reference: str,
+) -> None:
+    """Tie the RuntimeBinding archive in dist/ to the build result and its image."""
+    recorded = build_result.get("bindingArchive")
+    if not isinstance(recorded, str) or not Path(recorded).name:
+        raise ValueError("build result does not name a runtime binding archive")
+    # The build result records the builder's absolute path; the archive lives in dist/.
+    relative = f"dist/{Path(recorded).name}"
+    if not (plugin_directory / relative).is_file():
+        raise ValueError(f"runtime binding archive is missing: {relative}")
+    archive_path = _within(plugin_directory, relative)
+    artifact = read_runtime_binding_archive(archive_path)
+    if artifact.binding_document.descriptor.digest != build_result.get("bindingDocumentDigest"):
+        raise ValueError("runtime binding document digest differs from the build result")
+    document = _mapping(json.loads(artifact.binding_document.content), "runtime binding document")
+    spec = _mapping(document.get("spec"), "runtime binding spec")
+    plugin_link = _mapping(spec.get("plugin"), "runtime binding plugin link")
+    if plugin_link.get("digest") != build_result.get("pluginArtifactDigest"):
+        raise ValueError("runtime binding does not reference the built plugin artifact")
+    binding = _mapping(
+        _mapping(spec.get("workloads"), "runtime binding workloads").get(workload_id),
+        "runtime binding workload",
+    )
     options = binding.get("options")
     if not isinstance(options, list) or not options:
         raise ValueError("runtime binding workload has no image options")
@@ -240,7 +264,9 @@ def _workload_tag(value: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("plugin", choices=tuple(_PLUGIN_DIRECTORIES))
-    parser.add_argument("workload_tag", type=_workload_tag, help="Tag used for this workload build")
+    parser.add_argument(
+        "workload_tag", type=_workload_tag, help="Prefix naming this build's dist artifact files"
+    )
     args = parser.parse_args()
 
     plugin_directory = _within(Path.cwd(), str(_PLUGIN_DIRECTORIES[args.plugin]))
@@ -252,7 +278,8 @@ def main() -> None:
     if inspect_result.get("compiledDigest") != descriptor_digest:
         raise ValueError("inspect result does not match the archived plugin descriptor")
     _assert_plugin_identity(plugin_directory, source_plugin, plugin_descriptor)
-    _assert_workload_image(source_plugin, plugin_descriptor, build_result, image_reference)
+    _assert_workload_image(source_plugin, plugin_descriptor)
+    _assert_binding_archive(plugin_directory, build_result, workload_id, image_reference)
     print(f"Verified {args.plugin}: {image_reference}")
 
 
