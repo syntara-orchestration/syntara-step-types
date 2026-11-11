@@ -14,7 +14,7 @@ import yaml
 
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IMAGE_REFERENCE = re.compile(r"^(.+)@(sha256:[0-9a-f]{64})$")
-_WORKLOAD_TAG = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
+_WORKLOAD_TAG = re.compile(r"^\w[\w.-]{0,127}$", re.ASCII)
 _PLUGIN_MANIFEST_MEDIA_TYPE = "application/vnd.syntara.plugin.manifest.v1+yaml"
 _PLUGIN_DIRECTORIES = {
     name: Path(name) for name in ("http-request", "script-python", "script-bash")
