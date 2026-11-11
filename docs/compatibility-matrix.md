@@ -1,6 +1,6 @@
 # AO ↔ SDK ↔ EP compatibility matrix
 
-> Phase A deliverable for the GA step-types migration pathway.  
+> First deliverable of the GA step-types migration pathway.  
 > Script rows are **filled** against AO `devel` + step-types `devel`.  
 > HTTP / agentic / AAP rows are **stubs** (AO contract frozen; EP cutover not done).  
 > Schema dialect: JSON Schema **2020-12** (SDK and AO). The execution result stays a `StandardOutputWrapper`. AO expression namespaces use an interim projection of that wrapper (see Envelope rule). Do not publish `statusCode`, `statusMessage`, or `errorResult` as template fields.
@@ -17,7 +17,7 @@
 | EP status | Whether AO dispatches this type to EP today |
 | Rollout | Enablement knob |
 
-**Identity and revision.** Rows record the static step identity (`namespace.plugin.step`, for example `syntara.script-bash.script-bash`). That string is not a compiled revision. Health advertises the `sha256:` digest of the compiled step projection, and Execute accepts only that exact digest. This matrix does not freeze digest values; take them from the compiled descriptor or the image registration manifest for the release under test. Do not submit the static identity in place of the digest.
+**Identity and revision.** Rows record the static step identity (`namespace.plugin.step`, for example `syntara.script-bash.script-bash`). That string is not a compiled revision. **Target state:** Health advertises the `sha256:` digest of the compiled step projection, and Execute accepts only that exact digest; this matrix does not freeze digest values, so take them from the compiled descriptor or the image registration manifest for the release under test, and do not submit the static identity in place of the digest. **Today:** images still register through `step_registry_from_bindings`, so Health lists the static identity and Execute accepts it (see [`runtime.md`](runtime.md)); the digest gate applies once the images serve through the SDK resolved-revision path.
 
 **Envelope rule:** The SDK result is a `StandardOutputWrapper`: `result` (the business object), `statusCode`, `statusMessage`, and `errorResult`. Plugins declare only that business object under `spec.output`. Until AO consumes the wrapper natively, AO keeps a thin interim projection for templates: `resultSchema` adds `status` (`completed` \| `failed`) and failed-path `error`, and `${node_id.field}` reads business fields from `result`. Do not reshape those business fields, and do not publish wrapper keys as template fields.
 
@@ -33,23 +33,23 @@ AO keeps a **single** node type `script` with `language: python|bash`. Step-type
 2. Map `language=bash` → step identity `syntara.script-bash.script-bash` + bash image.  
 3. **Do not** forward `language` into `WorkloadInvocation.inputs` (plugins use `additionalProperties: false`).  
 4. **Do not** forward `execution_profile` into inputs; use it only for EP selectors (`_execution_target_id`).  
-5. Retire fixture-era acceptance defaults: `script.v1` and `quay.io/ahetheri/syntara-node-script:migration-test` (AO 1803 today). `script.v1` is neither a step identity nor a compiled revision.
+5. Retire fixture-era acceptance defaults: `script.v1` and the personal-namespace `migration-test` script image (AO today). `script.v1` is neither a step identity nor a compiled revision.
 
 ### Row: Python
 
 | Field | Value |
 |---|---|
 | AO node type | `script` (`language=python`) |
-| AO activity (1803) | `execute_script_activity` → `ep_dispatch_activity` |
+| AO activity (today) | `execute_script_activity` → `ep_dispatch_activity` |
 | Plugin | `syntara` / `script-python` / Action `script-python` |
 | **Step identity** | `syntara.script-python.script-python` |
 | Local image | `localhost/syntara-node-script-python:<tag>` (`Makefile` `NODES`) |
 | Workload image ID | `script-python-runner` |
 | Konflux / Quay (devel) | `…/automation-orchestrator-step-types-script-python-rhel9:…` |
 | AO image map key (target) | `script-python` (or resolve from `language` into `node_container_images`) |
-| AO image map today (1803) | `"script": "quay.io/ahetheri/syntara-node-script:migration-test"` — **mismatch** |
+| AO image map today | `"script"` points at a personal-namespace migration-test image (**mismatch**) |
 | Rollout today | `script_nodes_enabled` (default `false`) |
-| EP status | **Yes** (script-only on 1803), but identity/image still fixture-era |
+| EP status | **Yes** (script-only today), but identity/image still fixture-era |
 
 **Input mapping**
 
@@ -74,12 +74,18 @@ AO keeps a **single** node type `script` with `language: python|bash`. Step-type
 The interim AO projection also requires `status: "completed"` on the completed path. The failed path may null business fields and set `error`.
 
 <!-- Machine-checked output freeze (see tests/test_matrix_drift.py). Do not
-edit without updating script-python/manifest.yaml. -->
+edit without updating script-python/manifest.yaml. The types map records each
+field's JSON Schema type; ~ means the field is unconstrained. -->
 ```yaml
 output_freeze:
   plugin: script-python
   required: [return_code, stdout, stderr]
   optional: [stdout_json]
+  types:
+    return_code: integer
+    stdout: string
+    stderr: string
+    stdout_json: ~
 ```
 
 **Failure mapping (summary)**
@@ -113,6 +119,10 @@ output_freeze:
   plugin: script-bash
   required: [return_code, stdout, stderr]
   optional: []
+  types:
+    return_code: integer
+    stdout: string
+    stderr: string
 ```
 
 ---
@@ -157,6 +167,11 @@ output_freeze:
   plugin: http-request
   required: [status_code, body, headers, elapsed]
   optional: []
+  types:
+    status_code: integer
+    body: ~
+    headers: object
+    elapsed: number
 ```
 
 ---
@@ -226,9 +241,9 @@ output_freeze:
 
 1. **Breaking change:** renaming/removing a frozen output field requires an approved alias period; saved `${node.field}` strings are not schema-versioned at save time.  
 2. **Thin projection:** expression namespaces expose business fields and the interim AO `status` / `error` envelope. Do not expose `statusCode`, `statusMessage`, or `errorResult` from `StandardOutputWrapper` as template fields.  
-3. **Health and Execute:** the workload must advertise the exact compiled revision AO submits. The static step identity is not that revision, and `*` is not an Execute match. `script.v1` is not a compiled revision.  
-4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin (Phase 2): `0.1.0a4`.**  
-5. **No silent fallback:** after an ambiguous EP submit, do not fall back to in-process execution (1803 isolation rule).  
+3. **Health and Execute (target state):** the workload must advertise the exact compiled revision AO submits. The static step identity is not that revision, and `*` is not an Execute match. `script.v1` is not a compiled revision. Until the images serve the resolved-revision path, Health and Execute accept the static identity (see [`runtime.md`](runtime.md)).  
+4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin: `0.1.0a4`.**  
+5. **No silent fallback:** after an ambiguous EP submit, do not fall back to in-process execution (current AO isolation rule).  
 6. **EP `output_config`:** key selection only until AO evaluates template expressions; AO remains source of truth for `${…}` expansion.
 
 ---

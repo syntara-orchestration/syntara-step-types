@@ -24,7 +24,13 @@ _FREEZE_RE = re.compile(r"```yaml\n(output_freeze:\n(?:  .*\n)+?)```", re.MULTIL
 def _load_freezes() -> list[dict]:
     blocks = _FREEZE_RE.findall(_MATRIX.read_text())
     assert blocks, "no output_freeze blocks found in compatibility matrix"
-    return [yaml.safe_load(block)["output_freeze"] for block in blocks]
+    entries = [yaml.safe_load(block)["output_freeze"] for block in blocks]
+    names = [entry["plugin"] for entry in entries]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    assert not duplicates, (
+        f"duplicate output_freeze blocks, only the last would be checked: {duplicates}"
+    )
+    return entries
 
 
 def _manifest_output(plugin: str) -> dict:
@@ -77,3 +83,22 @@ def test_no_undeclared_frozen_fields(freezes: dict[str, dict], plugin: str) -> N
         f"{plugin}: manifest properties {sorted(properties)} not fully "
         f"covered by matrix freeze {sorted(declared)}"
     )
+
+
+@pytest.mark.parametrize("plugin", ["script-python", "script-bash", "http-request"])
+def test_frozen_field_types_match_manifest(freezes: dict[str, dict], plugin: str) -> None:
+    """The matrix freezes a JSON Schema type per field; assert it against the manifest."""
+    schema = _manifest_output(plugin)
+    properties = schema.get("properties", {})
+    frozen = freezes[plugin]
+    types = frozen.get("types")
+    assert isinstance(types, dict), f"{plugin}: no types map in the output_freeze block"
+    fields = set(frozen["required"]) | set(frozen.get("optional", []))
+    assert set(types) == fields, (
+        f"{plugin}: types map {sorted(types)} does not cover the frozen fields {sorted(fields)}"
+    )
+    for field, expected in types.items():
+        actual = properties.get(field, {}).get("type")
+        assert actual == expected, (
+            f"{plugin}: matrix freezes {field} as {expected!r}, manifest declares {actual!r}"
+        )
