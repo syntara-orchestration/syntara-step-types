@@ -20,6 +20,10 @@ _WRAPPER_KEYS = ("statusCode", "statusMessage", "errorResult")
 
 
 def _assert_business_output(result: dict) -> None:
+    """Assert the frozen script output fields (compatibility-matrix output freeze)."""
+    assert isinstance(result["return_code"], int)
+    assert isinstance(result["stdout"], str)
+    assert isinstance(result["stderr"], str)
     for key in _WRAPPER_KEYS:
         assert key not in result, f"wrapper key {key!r} leaked into business output"
 

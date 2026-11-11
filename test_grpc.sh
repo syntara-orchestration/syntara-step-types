@@ -39,13 +39,15 @@ grpcurl -plaintext \
   -import-path "$PROTO_PATH" \
   -proto "$PROTO_FILE" \
   -d "{
-    \"invocation_id\": \"grpc-test-1\",
-    \"workflow_run_id\": \"wf-grpc-1\",
-    \"step_revision_id\": \"syntara.script-python.script-python\",
-    \"runtime_abi\": \"syntara.container/v1alpha1\",
-    \"inputs_json\": \"$INPUTS\",
-    \"runtime_context_json\": \"$RUNTIME_CTX\",
-    \"timeout_seconds\": 60
+    \"start\": {
+      \"invocation_id\": \"grpc-test-1\",
+      \"workflow_run_id\": \"wf-grpc-1\",
+      \"step_revision_id\": \"syntara.script-python.script-python\",
+      \"runtime_abi\": \"syntara.container/v1alpha1\",
+      \"inputs_json\": \"$INPUTS\",
+      \"runtime_context_json\": \"$RUNTIME_CTX\",
+      \"timeout_seconds\": 60
+    }
   }" \
   "$PYTHON_HOST" \
   "$SERVICE/Execute"
@@ -60,13 +62,15 @@ grpcurl -plaintext \
   -import-path "$PROTO_PATH" \
   -proto "$PROTO_FILE" \
   -d "{
-    \"invocation_id\": \"grpc-test-2\",
-    \"workflow_run_id\": \"wf-grpc-2\",
-    \"step_revision_id\": \"syntara.script-bash.script-bash\",
-    \"runtime_abi\": \"syntara.container/v1alpha1\",
-    \"inputs_json\": \"$INPUTS\",
-    \"runtime_context_json\": \"$RUNTIME_CTX\",
-    \"timeout_seconds\": 60
+    \"start\": {
+      \"invocation_id\": \"grpc-test-2\",
+      \"workflow_run_id\": \"wf-grpc-2\",
+      \"step_revision_id\": \"syntara.script-bash.script-bash\",
+      \"runtime_abi\": \"syntara.container/v1alpha1\",
+      \"inputs_json\": \"$INPUTS\",
+      \"runtime_context_json\": \"$RUNTIME_CTX\",
+      \"timeout_seconds\": 60
+    }
   }" \
   "$BASH_HOST" \
   "$SERVICE/Execute"
@@ -81,13 +85,15 @@ grpcurl -plaintext \
   -import-path "$PROTO_PATH" \
   -proto "$PROTO_FILE" \
   -d "{
-    \"invocation_id\": \"grpc-test-3\",
-    \"workflow_run_id\": \"wf-grpc-3\",
-    \"step_revision_id\": \"syntara.script-python.script-python\",
-    \"runtime_abi\": \"syntara.container/v1alpha1\",
-    \"inputs_json\": \"$INPUTS\",
-    \"runtime_context_json\": \"$RUNTIME_CTX\",
-    \"timeout_seconds\": 60
+    \"start\": {
+      \"invocation_id\": \"grpc-test-3\",
+      \"workflow_run_id\": \"wf-grpc-3\",
+      \"step_revision_id\": \"syntara.script-python.script-python\",
+      \"runtime_abi\": \"syntara.container/v1alpha1\",
+      \"inputs_json\": \"$INPUTS\",
+      \"runtime_context_json\": \"$RUNTIME_CTX\",
+      \"timeout_seconds\": 60
+    }
   }" \
   "$PYTHON_HOST" \
   "$SERVICE/Execute"

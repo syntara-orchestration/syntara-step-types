@@ -18,7 +18,8 @@ def execute_events(
     """Yield ExecutionEvents from the bidi Execute stream.
 
     Bidi protocol (contracts 0.1.0a4): the client opens the stream with the
-    ExecuteRequest and answers credential requests if the step asks for one.
+    ExecuteRequest. A credential request fails the test: these steps declare
+    no credentials, so the server is never expected to ask for one.
     """
     messages = iter([container_pb2.ExecuteClientMessage(start=request)])
     for message in stub.Execute(messages, timeout=timeout):
