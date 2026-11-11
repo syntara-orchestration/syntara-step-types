@@ -59,10 +59,10 @@ Execution Plane); set `CONTRACTS_VERSION=...` when running `make node-images` or
 includes `syntara-plugin-sdk` for tests that compile and inspect plugin descriptors.
 
 AO ↔ plugin identity/output freezes for EP dispatch live in
-[`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) (AAP-95478).
+[`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
 The reusable cutover checklist is
 [`docs/migration-pathway.md`](docs/migration-pathway.md).
-The product-image E2E proof (AAP-95478 I7) is
+The product-image E2E proof is
 [`docs/e2e-pathway-proof.md`](docs/e2e-pathway-proof.md)
 (gRPC integration tests under `tests/integration/`).
 

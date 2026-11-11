@@ -1,6 +1,6 @@
 # Migration pathway: GA step types → Plugin SDK → Execution Plane
 
-> Playbook for AAP-95478 / ANSTRAT-2523.  
+> Playbook for the GA step-types migration.  
 > Golden reference: AO script dispatch on `devel` + the plugins in this repo (`http-request`, `script-python`, `script-bash`).  
 > Normative I/O freezes: [`compatibility-matrix.md`](compatibility-matrix.md).  
 > Runtime ABI details: [`runtime.md`](runtime.md).
@@ -66,6 +66,7 @@ when convenient):
 <plugin>/
   plugin.yaml            # kind: Plugin; namespace + name → identity prefix
   syntara-plugin.yaml    # build/publish settings
+  runtime-bindings.yaml  # kind: RuntimeBinding; workload image options
   manifest.yaml          # kind: Action; input/output/error schemas
   Containerfile
   example.json
@@ -80,9 +81,12 @@ Requirements:
 3. `spec.input` / `spec.output` JSON Schema **2020-12** mirroring Pydantic models
 4. `ActionStep.run()` returns the output model only; raise `StepFailure` for
    deliberate failures
-5. Health must advertise the **exact** compiled revision AO will submit.
+5. Declare each logical workload in `plugin.yaml` `spec.workloads.<id>` and its
+   image options in `runtime-bindings.yaml`; build targets live under
+   `build.workloads` in `syntara-plugin.yaml`
+6. Health must advertise the **exact** compiled revision AO will submit.
    The static identity (`namespace.plugin.step`) is not that revision.
-6. Pin `syntara-plugin-contracts` to the same reviewed version as EP
+7. Pin `syntara-plugin-contracts` to the same reviewed version as EP
    (Phase 2 joint pin: **`0.1.0a4`**)
 
 Copy an existing plugin (`script-python` or `http-request`) rather than

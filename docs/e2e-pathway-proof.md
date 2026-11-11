@@ -1,4 +1,4 @@
-# AAP-95478 I7 — E2E pathway proof (product step-types → EP → AO)
+# E2E pathway proof: product step-types → EP → AO
 
 > Acceptance path for the reusable migration pathway.  
 > **Product images + identities** are required. Fixture-era `script.v1` /
@@ -7,13 +7,13 @@
 Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),
 [`migration-pathway.md`](migration-pathway.md).
 
-## What was proven locally (Phase 2 / I7)
+## What was proven locally (Phase 2)
 
 On this branch (PR #22):
 
 ```bash
-make node-image NODE=script-python TAG=aap95478-i7
-# image: localhost/syntara-node-script-python:aap95478-i7
+make node-image NODE=script-python TAG=pathway-proof
+# image: localhost/syntara-node-script-python:pathway-proof
 # contracts pin inside image: syntara-plugin-contracts==0.1.0a4
 ```
 
@@ -33,7 +33,7 @@ frozen business fields, and the absence of wrapper keys for both python and
 bash:
 
 ```bash
-make node-image NODE=script-python TAG=aap95478-i7
+make node-image NODE=script-python TAG=pathway-proof
 make test-integration
 ```
 
@@ -43,19 +43,19 @@ See `tests/integration/test_script_grpc.py`.
 
 ```bash
 # after EP kind target is up (see syntara-execution-plane docs)
-kind load docker-image localhost/syntara-node-script-python:aap95478-i7 --name <ep-kind-name>
+kind load docker-image localhost/syntara-node-script-python:pathway-proof --name <ep-kind-name>
 
 # product payload helper (EP tools)
 cd ../syntara-execution-plane
 uv run python -m tools.submit_work_item \
   --product-step-types \
   --language python \
-  --image localhost/syntara-node-script-python:aap95478-i7 \
+  --image localhost/syntara-node-script-python:pathway-proof \
   --code 'import json; print(json.dumps({"result": 42}))' \
   --wait
 
 # or automated kind test
-EP_STEP_TYPES_IMAGE=localhost/syntara-node-script-python:aap95478-i7 \
+EP_STEP_TYPES_IMAGE=localhost/syntara-node-script-python:pathway-proof \
   uv run pytest tests/integration/kind/test_step_types_product_dispatch.py -m integration
 ```
 
@@ -68,7 +68,7 @@ Assert work item `completed` and result business fields include `return_code` /
 # settings / env equivalent
 script_nodes_enabled: true
 node_container_images:
-  script-python: localhost/syntara-node-script-python:aap95478-i7   # or Quay digest
+  script-python: localhost/syntara-node-script-python:pathway-proof   # or Quay digest
   script-bash: localhost/syntara-node-script-bash:<tag>
 ```
 
@@ -78,7 +78,7 @@ expression such as `${script_node.stdout}` / `${script_node.stdout_json.result}`
 AO unit coverage for this mapping:
 `syntara/backend/tests/unit/workflows/activities/test_ep_script_result_namespace.py`.
 
-## Definition of done for I7
+## Definition of done
 
 - [x] Product `script-python` image builds with contracts `0.1.0a4`
 - [x] Health advertised the static identity `syntara.script-python.script-python` (identity-keyed registry; not the compiled-revision gate)

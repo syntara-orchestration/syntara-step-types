@@ -1,6 +1,6 @@
 # AO ↔ SDK ↔ EP compatibility matrix
 
-> Phase A deliverable for AAP-95478.  
+> Phase A deliverable for the GA step-types migration pathway.  
 > Script rows are **filled** against AO `devel` + step-types `devel`.  
 > HTTP / agentic / AAP rows are **stubs** (AO contract frozen; EP cutover not done).  
 > Schema dialect: JSON Schema **2020-12** (SDK and AO). The execution result stays a `StandardOutputWrapper`. AO expression namespaces use an interim projection of that wrapper (see Envelope rule). Do not publish `statusCode`, `statusMessage`, or `errorResult` as template fields.
@@ -44,7 +44,7 @@ AO keeps a **single** node type `script` with `language: python|bash`. Step-type
 | Plugin | `syntara` / `script-python` / Action `script-python` |
 | **Step identity** | `syntara.script-python.script-python` |
 | Local image | `localhost/syntara-node-script-python:<tag>` (`Makefile` `NODES`) |
-| Workload imageId | `script-python-runner` |
+| Workload image ID | `script-python-runner` |
 | Konflux / Quay (devel) | `…/automation-orchestrator-step-types-script-python-rhel9:…` |
 | AO image map key (target) | `script-python` (or resolve from `language` into `node_container_images`) |
 | AO image map today (1803) | `"script": "quay.io/ahetheri/syntara-node-script:migration-test"` — **mismatch** |
@@ -100,7 +100,7 @@ output_freeze:
 | Plugin | `syntara` / `script-bash` / Action `script-bash` |
 | **Step identity** | `syntara.script-bash.script-bash` |
 | Local image | `localhost/syntara-node-script-bash:<tag>` |
-| Workload imageId | `script-bash-runner` |
+| Workload image ID | `script-bash-runner` |
 | Konflux / Quay (devel) | `…/automation-orchestrator-step-types-script-bash-rhel9:…` |
 | AO image map key (target) | `script-bash` |
 | Same input strip rules as Python | yes |
@@ -126,7 +126,7 @@ output_freeze:
 | Plugin (step-types) | `syntara` / `http-request` / Action `http-request` |
 | **Step identity** | `syntara.http-request.http-request` |
 | Local image | `localhost/syntara-node-http-request:<tag>` |
-| Workload imageId | `http-request-runner` |
+| Workload image ID | `http-request-runner` |
 | Konflux | **Missing on devel** (no HTTP Tekton pipelines yet) |
 | EP status | Image EP-ready; **AO cutover deferred** |
 | Rollout (target) | Future per-type flag (e.g. `http_request_nodes_enabled`) + image map entry |
@@ -227,7 +227,7 @@ output_freeze:
 1. **Breaking change:** renaming/removing a frozen output field requires an approved alias period; saved `${node.field}` strings are not schema-versioned at save time.  
 2. **Thin projection:** expression namespaces expose business fields and the interim AO `status` / `error` envelope. Do not expose `statusCode`, `statusMessage`, or `errorResult` from `StandardOutputWrapper` as template fields.  
 3. **Health and Execute:** the workload must advertise the exact compiled revision AO submits. The static step identity is not that revision, and `*` is not an Execute match. `script.v1` is not a compiled revision.  
-4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin for AAP-95478 Phase 2: `0.1.0a4`.**  
+4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin (Phase 2): `0.1.0a4`.**  
 5. **No silent fallback:** after an ambiguous EP submit, do not fall back to in-process execution (1803 isolation rule).  
 6. **EP `output_config`:** key selection only until AO evaluates template expressions; AO remains source of truth for `${…}` expansion.
 
