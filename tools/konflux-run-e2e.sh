@@ -130,9 +130,14 @@ done
 echo "==> Running syntara-step-types dispatch e2e (AO: ${AO_API_BASE}, EP: ${EP_API_URL})"
 mkdir -p "${RESULTS_DIR}"
 
+# E2E_PYTEST_TARGET selects what runs: the whole suite by default, or a
+# single test (e.g. "tests/e2e/test_script_dispatch.py::test_script_bash_example_dispatches_and_completes")
+# for lightweight runs from another repository's pipeline.
+E2E_PYTEST_TARGET="${E2E_PYTEST_TARGET:-${E2E_DIR}}"
+
 AO_ADMIN_PASSWORD="$(_ao_admin_password)" \
   uv run --no-project --with "pytest>=8" --with "httpx>=0.28" -- \
-    pytest "${E2E_DIR}" -v -m e2e \
+    pytest "${E2E_PYTEST_TARGET}" -v -m e2e \
     --junitxml="${RESULTS_DIR}/e2e-junit.xml"
 
 echo "==> e2e results written to ${RESULTS_DIR}/e2e-junit.xml"
