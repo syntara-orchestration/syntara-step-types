@@ -18,6 +18,9 @@ def test_workload_paths_resolve_from_settings_directory(step):
     assert workload.context == root
     assert workload.containerfile == root / step / "Containerfile"
     assert workload.containerfile.is_file()
+    binding_manifest = settings.build.runtime_binding_manifest
+    assert binding_manifest == root / step / "runtime-bindings.yaml"
+    assert binding_manifest.is_file()
 
 
 @pytest.mark.parametrize(

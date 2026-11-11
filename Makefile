@@ -83,9 +83,8 @@ sdk-plugin-run: sdk-plugin-check
 sdk-plugin-build-inspect: sdk-plugin-check
 	@mkdir -p "$(PLUGIN)/dist"
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin build \
-		--with-workload --workload-tag "$(SDK_WORKLOAD_TAG)" \
 		--output "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
-	jq -e '(.artifactDigest | test("^sha256:[0-9a-f]{64}$$")) and (.workloadImage | test("@sha256:[0-9a-f]{64}$$"))' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
+	jq -e '(.pluginArtifactDigest | test("^sha256:[0-9a-f]{64}$$")) and (.images[0].reference | test("@sha256:[0-9a-f]{64}$$"))' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin inspect "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
 	jq -e '.artifactDigest | test("^sha256:[0-9a-f]{64}$$")' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
 	$(UV) run --frozen --all-packages python .github/scripts/assert_plugin_archive.py "$(PLUGIN)" "$(SDK_WORKLOAD_TAG)"

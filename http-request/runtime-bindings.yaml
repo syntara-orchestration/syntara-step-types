@@ -1,0 +1,17 @@
+apiVersion: syntara.io/v1alpha1
+kind: RuntimeBinding
+metadata:
+  namespace: syntara
+  name: http-request-runtime
+spec:
+  plugin:
+    source: plugin.yaml
+  workloads:
+    http-request:
+      default: default
+      options:
+        - name: default
+          displayName: Default runtime
+          description: Container image built from this plugin's Containerfile.
+          image:
+            buildTarget: http-request

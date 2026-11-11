@@ -9,7 +9,8 @@ metadata:
 spec:
   documentation:
     path: README.md
-  workload:
-    image: http-request-runner
+  workloads:
+    http-request:
+      image: http-request-runner
   targets:
     - manifest.yaml

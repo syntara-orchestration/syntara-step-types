@@ -9,7 +9,8 @@ metadata:
 spec:
   documentation:
     path: README.md
-  workload:
-    image: script-python-runner
+  workloads:
+    script-python:
+      image: script-python-runner
   targets:
     - manifest.yaml
