@@ -5,25 +5,24 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
-    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "pull_request" && target_branch == "early-access" &&
+      event == "push" && target_branch == "early-access" &&
       files.all.exists(x,
         x.startsWith("script-bash/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-bash-early-access-pull-request.yaml".pathChanged())
+        ".tekton/ao-bash-rhel9-early-access-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
     appstudio.openshift.io/component: automation-orchestrator-step-types-script-bash-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: automation-orchestrator-step-types-script-bash-rhel9-early-access-on-pull-request
+  name: automation-orchestrator-step-types-script-bash-rhel9-early-access-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -32,9 +31,7 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-bash:on-pr-{{revision}}
-    - name: image-expires-after
-      value: 5d
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-bash-rhel9:{{revision}}
     - name: dockerfile
       value: script-bash/Containerfile
     - name: path-context
