@@ -31,7 +31,7 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:{{revision}}
     - name: dockerfile
       value: script-python/Containerfile
     - name: path-context

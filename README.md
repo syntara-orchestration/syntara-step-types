@@ -22,8 +22,8 @@ CI runs tests on Python 3.12–3.14.
 | Step | Folder | Local development image | AO Konflux image name |
 | --- | --- | --- | --- |
 | HTTP request | `http-request/` | `syntara-node-http-request` | — |
-| Python script | `script-python/` | `syntara-node-script-python` | `ao-python` |
-| Bash script | `script-bash/` | `syntara-node-script-bash` | `ao-bash` |
+| Python script | `script-python/` | `syntara-node-script-python` | `ao-python-rhel9` |
+| Bash script | `script-bash/` | `syntara-node-script-bash` | `ao-bash-rhel9` |
 
 The local image names are used by the `make node-image` targets. Konflux builds the
 Python and Bash step images separately for the AO devel and early-access applications
