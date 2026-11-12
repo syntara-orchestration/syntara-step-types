@@ -132,8 +132,14 @@ mkdir -p "${RESULTS_DIR}"
 
 # E2E_PYTEST_TARGET selects what runs: the whole suite by default, or a
 # single test (e.g. "tests/e2e/test_script_dispatch.py::test_script_bash_example_dispatches_and_completes")
-# for lightweight runs from another repository's pipeline.
+# for lightweight runs from another repository's pipeline. Relative paths are
+# resolved against the repository root, since the script may be invoked from
+# anywhere (the Konflux run task ssh's into $HOME).
 E2E_PYTEST_TARGET="${E2E_PYTEST_TARGET:-${E2E_DIR}}"
+case "${E2E_PYTEST_TARGET}" in
+  /*) ;;
+  *) E2E_PYTEST_TARGET="${REPO_ROOT}/${E2E_PYTEST_TARGET}" ;;
+esac
 
 AO_ADMIN_PASSWORD="$(_ao_admin_password)" \
   uv run --no-project --with "pytest>=8" --with "httpx>=0.28" -- \
