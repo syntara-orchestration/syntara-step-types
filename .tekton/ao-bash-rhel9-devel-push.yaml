@@ -20,9 +20,9 @@ metadata:
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: automation-orchestrator-step-types-script-bash-devel
+    appstudio.openshift.io/component: ao-bash-devel
     pipelines.appstudio.openshift.io/type: build
-  name: automation-orchestrator-step-types-script-bash-rhel9-devel-on-push
+  name: ao-bash-devel-on-push
   namespace: nexus-tenant
 spec:
   params:
