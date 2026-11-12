@@ -43,7 +43,9 @@ See `tests/integration/test_script_grpc.py`.
 
 ```bash
 # after EP kind target is up (see syntara-execution-plane docs)
-kind load docker-image localhost/syntara-node-script-python:pathway-proof --name <ep-kind-name>
+# kind reads Docker's store, so transfer an archive from the default Podman build
+podman save localhost/syntara-node-script-python:pathway-proof --output /tmp/script-python.tar
+kind load image-archive /tmp/script-python.tar --name <ep-kind-name>
 
 # product payload helper (EP tools)
 cd ../syntara-execution-plane
