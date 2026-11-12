@@ -1,4 +1,4 @@
-apiVersion: syntara.io/v1alpha1
+aapiVersion: syntara.io/v1alpha1
 kind: Plugin
 metadata:
   namespace: syntara

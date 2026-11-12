@@ -20,7 +20,7 @@ metadata:
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: automation-orchestrator-step-types-script-python-devel
+    appstudio.openshift.io/component: automation-orchestrator-step-types-script-python-rhel9-devel
     pipelines.appstudio.openshift.io/type: build
   name: automation-orchestrator-step-types-script-python-rhel9-devel-on-push
   namespace: nexus-tenant

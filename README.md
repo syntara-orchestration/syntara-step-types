@@ -1,4 +1,4 @@
-# Syntara step types
+  # Syntara step types
 
 Container-packaged workflow step types for the Syntara Execution Plane, built on the
 `syntara-plugin-contracts` runtime. Each step is a typed `ActionStep[TInput, TOutput]`
