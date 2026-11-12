@@ -17,7 +17,7 @@ metadata:
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/automation-orchestrator-step-types-script-bash-rhel9-early-access-pull-request.yaml".pathChanged())
+        ".tekton/ao-bash-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
