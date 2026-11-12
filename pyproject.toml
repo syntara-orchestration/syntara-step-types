@@ -25,10 +25,11 @@ members = ["script-runtime", "http-request"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["script-runtime/tests", "http-request/tests", "tests/integration"]
+testpaths = ["script-runtime/tests", "http-request/tests", "tests/integration", "tests/e2e"]
 addopts = "--import-mode=importlib"
 markers = [
     "integration: integration tests requiring container runtime (deselect with '-m \"not integration\"')",
+    "e2e: dispatch e2e tests requiring a live AO + Execution Plane deployment (AO_API_BASE)",
 ]
 
 [tool.ruff]
