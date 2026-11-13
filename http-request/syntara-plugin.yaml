@@ -14,13 +14,14 @@ registry:
 
 build:
   artifactOutput: dist/http-request.oci.tar
-  workload:
-    engine: podman
-    context: ..
-    containerfile: Containerfile
-    tag: 0.1.0
-    platform: linux/amd64
-    imageId: http-request-runner
+  runtimeBindings: runtime-bindings.yaml
+  workloads:
+    http-request:
+      engine: podman
+      context: ..
+      containerfile: Containerfile
+      tag: 0.1.0
+      platform: linux/amd64
 
 publish:
   channel: 0.1.0

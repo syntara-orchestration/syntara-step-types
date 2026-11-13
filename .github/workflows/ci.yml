@@ -38,6 +38,9 @@ jobs:
         working-directory: step-types
       - run: make lint typecheck
         working-directory: step-types
+      - name: Check compatibility-matrix drift
+        run: make sdk-plugin-drift
+        working-directory: step-types
 
   tests:
     runs-on: ubuntu-latest

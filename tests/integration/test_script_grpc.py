@@ -10,9 +10,23 @@ import grpc
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.helpers import execute_output
+from tests.integration.helpers import execute_events, execute_output
 
 pytestmark = pytest.mark.integration
+
+# Wrapper keys stay on the SDK ContainerResult envelope; they must never leak
+# into the business output object AO projects into ${node_id.*} namespaces.
+_WRAPPER_KEYS = ("statusCode", "statusMessage", "errorResult")
+
+
+def _assert_business_output(result: dict) -> None:
+    """Assert the frozen script output fields (compatibility-matrix output freeze)."""
+    assert isinstance(result["return_code"], int)
+    assert isinstance(result["stdout"], str)
+    assert isinstance(result["stderr"], str)
+    for key in _WRAPPER_KEYS:
+        assert key not in result, f"wrapper key {key!r} leaked into business output"
+
 
 _PYTHON_STEP_REVISION_ID = "syntara.script-python.script-python"
 _BASH_STEP_REVISION_ID = "syntara.script-bash.script-bash"
@@ -34,7 +48,6 @@ def _execute(
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"code": code, "environment": environment or {}}).encode(),
         runtime_context_json=b"{}",
-        credential_file_paths_json=b"{}",
         timeout_seconds=30,
     )
     return execute_output(stub, request, timeout=35)
@@ -60,6 +73,7 @@ def test_python_print(python_script_stub: container_pb2_grpc.ContainerServiceStu
     )
     assert result["return_code"] == 0
     assert "hello from python" in result["stdout"]
+    _assert_business_output(result)
 
 
 def test_bash_echo(bash_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
@@ -71,6 +85,7 @@ def test_bash_echo(bash_script_stub: container_pb2_grpc.ContainerServiceStub) ->
     assert result["return_code"] == 0
     assert "hello from bash" in result["stdout"]
     assert "stdout_json" not in result
+    _assert_business_output(result)
 
 
 def test_environment_variables(python_script_stub: container_pb2_grpc.ContainerServiceStub) -> None:
@@ -117,10 +132,9 @@ def test_script_failure_handling(
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"code": "raise SystemExit(1)", "environment": {}}).encode(),
         runtime_context_json=b"{}",
-        credential_file_paths_json=b"{}",
         timeout_seconds=30,
     )
-    for event in python_script_stub.Execute(request, timeout=35):
+    for event in execute_events(python_script_stub, request, timeout=35):
         if event.HasField("result"):
             assert event.result.status_code != 0
             error = json.loads(event.result.error_result_json)
@@ -156,11 +170,10 @@ def _assert_admission_control_busy_and_control_rpcs(
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,
             runtime_context_json=b"{}",
-            credential_file_paths_json=b"{}",
             timeout_seconds=_HOLD_SECONDS + 5,
         )
         try:
-            for event in stub.Execute(req, timeout=_HOLD_SECONDS + 5):
+            for event in execute_events(stub, req, timeout=_HOLD_SECONDS + 5):
                 if event.HasField("result") and event.result.status_code:
                     return json.loads(event.result.error_result_json)["code"]
                 if event.HasField("failure"):
@@ -183,12 +196,11 @@ def _assert_admission_control_busy_and_control_rpcs(
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,
             runtime_context_json=b"{}",
-            credential_file_paths_json=b"{}",
             timeout_seconds=30,
         )
         busy_start = time.monotonic()
         busy_seen = False
-        for event in stub.Execute(busy_req, timeout=30):
+        for event in execute_events(stub, busy_req, timeout=30):
             if event.HasField("result"):
                 assert event.result.status_code != 0, "Busy request unexpectedly succeeded"
                 error = json.loads(event.result.error_result_json)

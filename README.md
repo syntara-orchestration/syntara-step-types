@@ -19,11 +19,15 @@ CI runs tests on Python 3.12–3.14.
 
 ## Available steps
 
-| Step | Folder | Image suffix |
-| --- | --- | --- |
-| HTTP request | `http-request/` | `syntara-node-http-request` |
-| Python script | `script-python/` | `syntara-node-script-python` |
-| Bash script | `script-bash/` | `syntara-node-script-bash` |
+| Step | Folder | Local development image | AO Konflux image name |
+| --- | --- | --- | --- |
+| HTTP request | `http-request/` | `syntara-node-http-request` | — |
+| Python script | `script-python/` | `syntara-node-script-python` | `ao-python-rhel9` |
+| Bash script | `script-bash/` | `syntara-node-script-bash` | `ao-bash-rhel9` |
+
+The local image names are used by the `make node-image` targets. Konflux builds the
+Python and Bash step images separately for the AO devel and early-access applications
+using the image names in the last column.
 
 Each plugin folder contains its own `Containerfile`, SDK manifest, and example
 input. Shared script execution code lives in `script-runtime/`. Build from the
@@ -53,10 +57,18 @@ See [`docs/runtime.md`](docs/runtime.md) for the gRPC ABI, cancellation, and TLS
 ## Runtime and SDK dependencies
 
 Step packages and workload images depend on `syntara-plugin-contracts` for runtime
-APIs. Container builds install version `0.1.0a2` by default; set
-`CONTRACTS_VERSION=...` when running `make node-images` or `make node-image` to select
-another release. The development dependency group also includes `syntara-plugin-sdk`
-for tests that compile and inspect plugin descriptors.
+APIs. Container builds install version `0.1.0a4` by default (aligned with
+Execution Plane); set `CONTRACTS_VERSION=...` when running `make node-images` or
+`make node-image` to select another release. The development dependency group also
+includes `syntara-plugin-sdk` for tests that compile and inspect plugin descriptors.
+
+AO ↔ plugin identity/output freezes for EP dispatch live in
+[`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
+The reusable cutover checklist is
+[`docs/migration-pathway.md`](docs/migration-pathway.md).
+The product-image E2E proof is
+[`docs/e2e-pathway-proof.md`](docs/e2e-pathway-proof.md)
+(gRPC integration tests under `tests/integration/`).
 
 ## Provenance
 

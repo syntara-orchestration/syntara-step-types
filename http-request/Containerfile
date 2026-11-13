@@ -3,7 +3,7 @@ WORKDIR /app
 
 FROM base AS builder
 # renovate: datasource=pypi depName=syntara-plugin-contracts
-ARG CONTRACTS_VERSION=0.1.0a2
+ARG CONTRACTS_VERSION=0.1.0a4
 COPY http-request/pyproject.toml /app/pyproject.toml
 COPY http-request/manifest.yaml /app/manifest.yaml
 COPY http-request/src /app/src

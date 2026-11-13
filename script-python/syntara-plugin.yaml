@@ -14,13 +14,14 @@ registry:
 
 build:
   artifactOutput: dist/script-python.oci.tar
-  workload:
-    engine: podman
-    context: ..
-    containerfile: Containerfile
-    tag: 0.1.0
-    platform: linux/amd64
-    imageId: script-python-runner
+  runtimeBindings: runtime-bindings.yaml
+  workloads:
+    script-python:
+      engine: podman
+      context: ..
+      containerfile: Containerfile
+      tag: 0.1.0
+      platform: linux/amd64
 
 publish:
   channel: 0.1.0

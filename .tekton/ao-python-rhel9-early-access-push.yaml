@@ -16,13 +16,13 @@ metadata:
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/automation-orchestrator-step-types-script-python-rhel9-early-access-push.yaml".pathChanged())
+        ".tekton/ao-python-rhel9-early-access-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
-    appstudio.openshift.io/component: automation-orchestrator-step-types-script-python-early-access
+    appstudio.openshift.io/component: ao-python-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: automation-orchestrator-step-types-script-python-rhel9-early-access-on-push
+  name: ao-python-early-access-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -31,7 +31,7 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/automation-orchestrator-step-types-script-python-rhel9:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:{{revision}}
     - name: dockerfile
       value: script-python/Containerfile
     - name: path-context

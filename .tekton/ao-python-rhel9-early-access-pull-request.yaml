@@ -5,24 +5,25 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "push" && target_branch == "early-access" &&
+      event == "pull_request" && target_branch == "early-access" &&
       files.all.exists(x,
-        x.startsWith("script-bash/") ||
+        x.startsWith("script-python/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/automation-orchestrator-step-types-script-bash-rhel9-early-access-push.yaml".pathChanged())
+        ".tekton/ao-python-rhel9-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
-    appstudio.openshift.io/component: automation-orchestrator-step-types-script-bash-early-access
+    appstudio.openshift.io/component: ao-python-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: automation-orchestrator-step-types-script-bash-rhel9-early-access-on-push
+  name: ao-python-early-access-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -31,9 +32,11 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/automation-orchestrator-step-types-script-bash-rhel9:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:on-pr-{{revision}}
+    - name: image-expires-after
+      value: 5d
     - name: dockerfile
-      value: script-bash/Containerfile
+      value: script-python/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -58,7 +61,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-bash-early-access
+    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-python-early-access
   workspaces:
     - name: git-auth
       secret:

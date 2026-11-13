@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <3.15"
 
 [manifest]
@@ -817,7 +817,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a4" },
 ]
 
 [[package]]
@@ -832,36 +832,37 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a4" },
 ]
 
 [[package]]
 name = "syntara-plugin-contracts"
-version = "0.1.0a2"
+version = "0.1.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
     { name = "jsonschema" },
     { name = "protobuf" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/61/f7e37d0fc8a737facad3d89abb2421e9eb7728d1c782ca105f5947ba0e61/syntara_plugin_contracts-0.1.0a2.tar.gz", hash = "sha256:e3aaabf4ddef6bf730ce8f3c2c212f4b0e0f8bc6a75a7d9291153f0084c49373", size = 82059, upload-time = "2026-11-02T21:09:35.23Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/54/d8/a76b7c311d49f10bc671c28f1dca280a6788722ee4f66384cc27a7f0327b/syntara_plugin_contracts-0.1.0a4.tar.gz", hash = "sha256:35969a8a8ada0352be4eed8caf030153625cc335b68f75aaf2b7926e094fc303", size = 107598, upload-time = "2026-11-10T18:01:46.505Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/f1/03eb0dd67c7eece62d48716e178f1072a571e22f7a82290abfb462efc0ff/syntara_plugin_contracts-0.1.0a2-py3-none-any.whl", hash = "sha256:a6436506323fac6d96ef40b95504e9e9f1be2977aa52124756c46633de64dcf6", size = 121678, upload-time = "2026-11-02T21:09:33.943Z" },
+    { url = "https://files.pythonhosted.org/packages/59/92/b5f956fbf19e186a2de3a818b7ae69f44067bc5d84d0c6944ed23eddacf8/syntara_plugin_contracts-0.1.0a4-py3-none-any.whl", hash = "sha256:d2eb200daa35cf72fa67bca511ecbdc186a4c6797164569190a51f4ee78645f0", size = 152968, upload-time = "2026-11-10T18:01:45.155Z" },
 ]
 
 [[package]]
 name = "syntara-plugin-sdk"
-version = "0.1.0a2"
+version = "0.1.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/79/e4bba4ec89ed470c0ca8129c510e8ed61bc0bffb37489c71f53d4b3dfc13/syntara_plugin_sdk-0.1.0a2.tar.gz", hash = "sha256:55585367119401dd92973c04b967de6843b09c7996c87f4f1308cce8bfd0b40c", size = 105239, upload-time = "2026-11-02T21:10:03.445Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/bf/f28cb75ecb358638dd3e7576665bbb091b70bf4bfc6720131d4bc9f78d5e/syntara_plugin_sdk-0.1.0a4.tar.gz", hash = "sha256:0f899f4f6abd34dad9e9698e02de5dffe034d0a19576ddaf4b539c462d726334", size = 150594, upload-time = "2026-11-10T18:02:06.351Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/59/58f855e4f4b5f3dea68f453dc0fdf4bd03eaf0b9ed43b67b9fd5f2ae827c/syntara_plugin_sdk-0.1.0a2-py3-none-any.whl", hash = "sha256:e157e36480643f19480c6081697124ea288b26b804a8aec7f302372944e2719b", size = 122394, upload-time = "2026-11-02T21:10:01.892Z" },
+    { url = "https://files.pythonhosted.org/packages/db/98/ac3827351b76b2db0ff797db7e1d4cc5c049975e4c7f596ad4da976d030e/syntara_plugin_sdk-0.1.0a4-py3-none-any.whl", hash = "sha256:0e2200d149e6deb1b4a318000662db530fcdd1a23877b19bd531cc3bf993dc8e", size = 172053, upload-time = "2026-11-10T18:02:05.067Z" },
 ]
 
 [[package]]
@@ -887,7 +888,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a2" }]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a4" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -899,7 +900,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = "==0.14.3" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a2" },
+    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a4" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

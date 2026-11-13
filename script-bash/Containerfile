@@ -7,9 +7,15 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /bin/
 COPY pyproject.toml uv.lock /app/
 COPY http-request/pyproject.toml /app/http-request/pyproject.toml
 COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
+# Optional contracts override; empty by default, which keeps the uv.lock pin.
+ARG CONTRACTS_VERSION=
 COPY script-bash/manifest.yaml /app/manifest.yaml
 RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
-    --package syntara-node-script-runtime
+    --package syntara-node-script-runtime \
+    && if [ -n "$CONTRACTS_VERSION" ]; then \
+        uv pip install --python /app/.venv/bin/python \
+          "syntara-plugin-contracts==${CONTRACTS_VERSION}"; \
+    fi
 
 FROM base
 COPY --from=builder /app/.venv /app/.venv

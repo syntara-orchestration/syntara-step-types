@@ -1,4 +1,4 @@
-"""Assert that an SDK-built archive matches its source plugin and image build."""
+"""Assert that an SDK-built archive matches its source plugin and runtime binding."""
 
 from __future__ import annotations
 
@@ -11,10 +11,11 @@ from typing import Any
 from urllib.parse import urlparse
 
 import yaml
+from syntara_plugin.sdk.runtime_binding_archive import read_runtime_binding_archive
 
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IMAGE_REFERENCE = re.compile(r"^(.+)@(sha256:[0-9a-f]{64})$")
-_WORKLOAD_TAG = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
+_WORKLOAD_TAG = re.compile(r"^\w[\w.-]{0,127}$", re.ASCII)
 _PLUGIN_MANIFEST_MEDIA_TYPE = "application/vnd.syntara.plugin.manifest.v1+yaml"
 _PLUGIN_DIRECTORIES = {
     name: Path(name) for name in ("http-request", "script-python", "script-bash")
@@ -90,10 +91,10 @@ def _source_configuration(
     settings = _read_yaml(plugin_directory, "syntara-plugin.yaml")
     metadata = _mapping(source_plugin.get("metadata"), "source plugin metadata")
     spec = _mapping(source_plugin.get("spec"), "source plugin spec")
-    workload = _mapping(spec.get("workload"), "source plugin workload")
-    workload_image_id = workload.get("image")
-    if not isinstance(workload_image_id, str):
-        raise ValueError("source plugin must declare a workload image")
+    workloads = _mapping(spec.get("workloads"), "source plugin workloads")
+    if len(workloads) != 1:
+        raise ValueError("source plugin must declare exactly one workload")
+    workload_id = next(iter(workloads))
 
     registry = _mapping(settings.get("registry"), "plugin registry settings")
     origin = registry.get("origin")
@@ -101,13 +102,14 @@ def _source_configuration(
     if not isinstance(origin, str) or not isinstance(repository, str):
         raise ValueError("plugin settings must declare registry origin and workload repository")
     expected_repository = f"{urlparse(origin).netloc}/{repository}"
-    return source_plugin, metadata, workload_image_id, expected_repository
+    return source_plugin, metadata, workload_id, expected_repository
 
 
 def _build_results(
     plugin_directory: Path,
     plugin_name: str,
     workload_tag: str,
+    workload_id: str,
     expected_repository: str,
 ) -> tuple[dict[str, Any], dict[str, Any], str, str]:
     artifact_prefix = f"{plugin_name}-{workload_tag}"
@@ -119,10 +121,22 @@ def _build_results(
         json.loads(inspect_path.read_text(encoding="utf-8")), "inspect result"
     )
 
-    artifact_digest = build_result.get("artifactDigest")
+    artifact_digest = build_result.get("pluginArtifactDigest")
     if not isinstance(artifact_digest, str) or not _SHA256.fullmatch(artifact_digest):
         raise ValueError("SDK build result has an invalid artifact digest")
-    image_reference = build_result.get("workloadImage")
+    images = build_result.get("images")
+    image_reference = None
+    if isinstance(images, list):
+        entry = next(
+            (
+                image
+                for image in images
+                if isinstance(image, dict) and image.get("workload") == workload_id
+            ),
+            None,
+        )
+        if isinstance(entry, dict):
+            image_reference = entry.get("reference")
     match = (
         _IMAGE_REFERENCE.fullmatch(image_reference) if isinstance(image_reference, str) else None
     )
@@ -186,16 +200,57 @@ def _assert_plugin_identity(
 
 
 def _assert_workload_image(
-    source_plugin: dict[str, Any], plugin_descriptor: dict[str, Any], image_reference: str
+    source_plugin: dict[str, Any], plugin_descriptor: dict[str, Any]
 ) -> None:
+    # The plugin archive names the workload; the image digest lives in the RuntimeBinding.
     source_spec = _mapping(source_plugin.get("spec"), "source plugin spec")
-    source_workload = _mapping(source_spec.get("workload"), "source plugin workload")
-    workload_image_id = source_workload.get("image")
+    workload_id = next(iter(_mapping(source_spec.get("workloads"), "source plugin workloads")))
     archived_spec = _mapping(plugin_descriptor.get("spec"), "archived plugin spec")
     archived_workloads = _mapping(archived_spec.get("workloads"), "archived workloads")
-    archived_workload = _mapping(archived_workloads.get(workload_image_id), "archived workload")
-    if archived_workload.get("image") != image_reference:
-        raise ValueError("archive workload digest differs from the SDK build result")
+    _mapping(archived_workloads.get(workload_id), "archived workload")
+
+
+def _assert_binding_archive(
+    plugin_directory: Path,
+    build_result: dict[str, Any],
+    workload_id: str,
+    image_reference: str,
+) -> None:
+    """Tie the RuntimeBinding archive in dist/ to the build result and its image."""
+    recorded = build_result.get("bindingArchive")
+    if not isinstance(recorded, str) or not Path(recorded).name:
+        raise ValueError("build result does not name a runtime binding archive")
+    # The build result records the builder's absolute path; the archive lives in dist/.
+    relative = f"dist/{Path(recorded).name}"
+    if not (plugin_directory / relative).is_file():
+        raise ValueError(f"runtime binding archive is missing: {relative}")
+    archive_path = _within(plugin_directory, relative)
+    artifact = read_runtime_binding_archive(archive_path)
+    if artifact.binding_document.descriptor.digest != build_result.get("bindingDocumentDigest"):
+        raise ValueError("runtime binding document digest differs from the build result")
+    document = _mapping(json.loads(artifact.binding_document.content), "runtime binding document")
+    spec = _mapping(document.get("spec"), "runtime binding spec")
+    plugin_link = _mapping(spec.get("plugin"), "runtime binding plugin link")
+    if plugin_link.get("digest") != build_result.get("pluginArtifactDigest"):
+        raise ValueError("runtime binding does not reference the built plugin artifact")
+    binding = _mapping(
+        _mapping(spec.get("workloads"), "runtime binding workloads").get(workload_id),
+        "runtime binding workload",
+    )
+    options = binding.get("options")
+    if not isinstance(options, list) or not options:
+        raise ValueError("runtime binding workload has no image options")
+    default_name = binding.get("default")
+    default_option = next(
+        (
+            option
+            for option in options
+            if isinstance(option, dict) and option.get("name") == default_name
+        ),
+        None,
+    )
+    if not isinstance(default_option, dict) or default_option.get("image") != image_reference:
+        raise ValueError("runtime binding default image differs from the SDK build result")
 
 
 def _workload_tag(value: str) -> str:
@@ -209,19 +264,22 @@ def _workload_tag(value: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("plugin", choices=tuple(_PLUGIN_DIRECTORIES))
-    parser.add_argument("workload_tag", type=_workload_tag, help="Tag used for this workload build")
+    parser.add_argument(
+        "workload_tag", type=_workload_tag, help="Prefix naming this build's dist artifact files"
+    )
     args = parser.parse_args()
 
     plugin_directory = _within(Path.cwd(), str(_PLUGIN_DIRECTORIES[args.plugin]))
-    source_plugin, _, _, expected_repository = _source_configuration(plugin_directory)
-    _, inspect_result, image_reference, archive_path = _build_results(
-        plugin_directory, args.plugin, args.workload_tag, expected_repository
+    source_plugin, _, workload_id, expected_repository = _source_configuration(plugin_directory)
+    build_result, inspect_result, image_reference, archive_path = _build_results(
+        plugin_directory, args.plugin, args.workload_tag, workload_id, expected_repository
     )
     plugin_descriptor, descriptor_digest = _archived_plugin_descriptor(archive_path)
     if inspect_result.get("compiledDigest") != descriptor_digest:
         raise ValueError("inspect result does not match the archived plugin descriptor")
     _assert_plugin_identity(plugin_directory, source_plugin, plugin_descriptor)
-    _assert_workload_image(source_plugin, plugin_descriptor, image_reference)
+    _assert_workload_image(source_plugin, plugin_descriptor)
+    _assert_binding_archive(plugin_directory, build_result, workload_id, image_reference)
     print(f"Verified {args.plugin}: {image_reference}")
 
 

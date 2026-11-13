@@ -9,7 +9,8 @@ metadata:
 spec:
   documentation:
     path: README.md
-  workload:
-    image: script-bash-runner
+  workloads:
+    script-bash:
+      image: script-bash-runner
   targets:
     - manifest.yaml
