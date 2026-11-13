@@ -20,9 +20,9 @@ metadata:
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
-    appstudio.openshift.io/component: automation-orchestrator-step-types-script-python-early-access
+    appstudio.openshift.io/component: ao-python-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: automation-orchestrator-step-types-script-python-rhel9-early-access-on-push
+  name: ao-python-early-access-on-push
   namespace: nexus-tenant
 spec:
   params:
