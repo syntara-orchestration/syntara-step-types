@@ -51,6 +51,10 @@ Steps raise `StepFailure` for deliberate, controlled failures. The runtime sends
 as a `Result` with a nonzero `status_code` and structured `error_result_json`. The
 `Failure` event is reserved for runtime or protocol failures.
 
+For completed scripts with nonzero exits, the structured error result also
+contains `return_code`, `stdout`, and `stderr`. This preserves captured logs
+without changing the nonzero SDK status or the `REMOTE_REJECTED` category.
+
 | Code | Category | Meaning | Retryable |
 | --- | --- | --- | --- |
 | `REMOTE_REJECTED` | `BUSINESS` | Script non-zero exit; HTTP 4xx | No |
