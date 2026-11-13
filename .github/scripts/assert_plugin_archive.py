@@ -134,10 +134,12 @@ def _workload_image(
         ),
         None,
     )
-    image_reference = entry.get("reference") if isinstance(entry, dict) else None
-    match = (
-        _IMAGE_REFERENCE.fullmatch(image_reference) if isinstance(image_reference, str) else None
-    )
+    if not isinstance(entry, dict):
+        raise ValueError(f"build result has no image for workload {workload_id!r}")
+    image_reference = entry.get("reference")
+    if not isinstance(image_reference, str):
+        raise ValueError(f"build result has an unexpected workload image: {image_reference!r}")
+    match = _IMAGE_REFERENCE.fullmatch(image_reference)
     if match is None or match.group(1) != expected_repository:
         raise ValueError(f"build result has an unexpected workload image: {image_reference!r}")
     image_archive_value = entry.get("archive")
@@ -156,7 +158,7 @@ def _build_results(
     artifact_root: Path,
     workload_id: str,
     expected_repository: str,
-) -> tuple[dict[str, Any], dict[str, Any], str, Path]:
+) -> tuple[dict[str, Any], dict[str, Any], str, Path, Path]:
     artifact_root = artifact_root.resolve(strict=True)
     build_path = _artifact_path(artifact_root, build_path, "SDK build result")
     inspect_path = _artifact_path(artifact_root, inspect_path, "SDK inspect result")
@@ -174,7 +176,7 @@ def _build_results(
     )
     if inspect_result.get("artifactDigest") != artifact_digest:
         raise ValueError("inspect result does not match the artifact produced by build")
-    return build_result, inspect_result, image_reference, image_archive
+    return build_result, inspect_result, image_reference, image_archive, archive_path
 
 
 def _archived_plugin_descriptor(
@@ -244,7 +246,7 @@ def _assert_workload_image(
 
 
 def _assert_binding_archive(
-    artifact_root: Path,
+    plugin_archive: Path,
     build_result: dict[str, Any],
     workload_id: str,
     image_reference: str,
@@ -253,7 +255,17 @@ def _assert_binding_archive(
     recorded = build_result.get("bindingArchive")
     if not isinstance(recorded, str) or not Path(recorded).name:
         raise ValueError("build result does not name a runtime binding archive")
-    archive_path = _artifact_path(artifact_root, recorded, "runtime binding archive")
+    recorded_name = Path(recorded).name
+    if not re.fullmatch(r"runtime-bindings-[0-9a-f]{64}\.oci\.tar", recorded_name):
+        raise ValueError("build result names an invalid runtime binding archive")
+    archive_matches = [
+        candidate
+        for candidate in plugin_archive.parent.glob("runtime-bindings-*.oci.tar")
+        if candidate.name == recorded_name
+    ]
+    if len(archive_matches) != 1:
+        raise ValueError("build result runtime binding archive is missing from the build directory")
+    archive_path = archive_matches[0]
     artifact = read_runtime_binding_archive(archive_path)
     if artifact.binding_document.descriptor.digest != build_result.get("bindingDocumentDigest"):
         raise ValueError("runtime binding document digest differs from the build result")
@@ -293,7 +305,7 @@ def main() -> None:
 
     plugin_directory = _within(Path.cwd(), str(_PLUGIN_DIRECTORIES[args.plugin]))
     source_plugin, _, workload_id, expected_repository = _source_configuration(plugin_directory)
-    build_result, inspect_result, image_reference, archive_path = _build_results(
+    build_result, inspect_result, image_reference, _, plugin_archive = _build_results(
         args.build_result,
         args.inspect_result,
         args.plugin_archive,
@@ -308,8 +320,8 @@ def main() -> None:
         raise ValueError("inspect result does not match the archived plugin descriptor")
     _assert_plugin_identity(plugin_directory, source_plugin, plugin_descriptor)
     _assert_workload_image(source_plugin, plugin_descriptor)
-    _assert_binding_archive(args.artifact_root, build_result, workload_id, image_reference)
-    print(f"Verified {args.plugin}: {image_reference}; workload archive {archive_path}")
+    _assert_binding_archive(plugin_archive, build_result, workload_id, image_reference)
+    print(f"Verified {args.plugin}: {image_reference}")
 
 
 if __name__ == "__main__":
