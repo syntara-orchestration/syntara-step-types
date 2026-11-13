@@ -48,7 +48,7 @@ spec:
     - name: hermetic
       value: 'false'
     - name: prefetch-input
-      value: '[]'
+      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"]}]'
   pipelineRef:
     params:
       - name: name

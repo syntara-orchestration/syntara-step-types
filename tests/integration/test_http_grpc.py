@@ -51,17 +51,21 @@ def test_health_check(http_stub: container_pb2_grpc.ContainerServiceStub) -> Non
     assert _STEP_REVISION_ID in list(response.step_revision_ids)
 
 
-def test_get_request(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
-    result = _execute(http_stub, url="https://httpbin.org/get")
+def test_get_request(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    result = _execute(http_stub, url=f"{test_upstream}/get")
     assert result["status_code"] == 200
     assert result["elapsed"] >= 0
     assert isinstance(result["body"], dict)
 
 
-def test_post_with_json_body(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
+def test_post_with_json_body(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
     result = _execute(
         http_stub,
-        url="https://httpbin.org/post",
+        url=f"{test_upstream}/post",
         method="POST",
         body={"key": "value"},
     )
@@ -69,10 +73,12 @@ def test_post_with_json_body(http_stub: container_pb2_grpc.ContainerServiceStub)
     assert result["body"]["json"] == {"key": "value"}
 
 
-def test_query_params(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
+def test_query_params(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
     result = _execute(
         http_stub,
-        url="https://httpbin.org/get",
+        url=f"{test_upstream}/get",
         query_params={"foo": "bar"},
     )
     assert result["status_code"] == 200

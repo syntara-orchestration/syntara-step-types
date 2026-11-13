@@ -23,5 +23,8 @@ Runs Bash source in an isolated subprocess and captures its output.
 From the repository root:
 
 ```bash
-make node-image NODE=script-bash CONTAINER_ENGINE=docker TAG=local-test
+make node-image NODE=script-bash TAG=local-test
 ```
+
+The SDK build creates the workload OCI archive; Make loads it into the selected
+local container engine as `localhost/syntara-node-script-bash:local-test`.
