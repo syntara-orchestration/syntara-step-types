@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import tarfile
 from pathlib import Path
@@ -34,6 +35,17 @@ def _within(root: Path, relative_path: str) -> Path:
     if not resolved_path.is_relative_to(resolved_root):
         raise ValueError(f"path must stay within {resolved_root}: {relative_path}")
     return resolved_path
+
+
+def _artifact_path(artifact_root: Path, path_value: str | Path, label: str) -> Path:
+    resolved_root = artifact_root.resolve(strict=True)
+    candidate = Path(os.path.abspath(path_value))
+    if not candidate.is_relative_to(resolved_root):
+        raise ValueError(f"{label} escapes the isolated build directory")
+    resolved_candidate = candidate.resolve(strict=True)
+    if not resolved_candidate.is_relative_to(resolved_root):
+        raise ValueError(f"{label} escapes the isolated build directory")
+    return resolved_candidate
 
 
 def _read_yaml(plugin_directory: Path, relative_path: str) -> dict[str, Any]:
@@ -105,6 +117,38 @@ def _source_configuration(
     return source_plugin, metadata, workload_id, expected_repository
 
 
+def _workload_image(
+    build_result: dict[str, Any],
+    workload_id: str,
+    expected_repository: str,
+    artifact_root: Path,
+) -> tuple[str, Path]:
+    images = build_result.get("images")
+    if not isinstance(images, list):
+        raise ValueError("SDK build result has no workload images")
+    entry = next(
+        (
+            image
+            for image in images
+            if isinstance(image, dict) and image.get("workload") == workload_id
+        ),
+        None,
+    )
+    image_reference = entry.get("reference") if isinstance(entry, dict) else None
+    match = (
+        _IMAGE_REFERENCE.fullmatch(image_reference) if isinstance(image_reference, str) else None
+    )
+    if match is None or match.group(1) != expected_repository:
+        raise ValueError(f"build result has an unexpected workload image: {image_reference!r}")
+    image_archive_value = entry.get("archive")
+    if not isinstance(image_archive_value, str):
+        raise ValueError("SDK build result does not identify the workload archive")
+    image_archive = _artifact_path(artifact_root, image_archive_value, "SDK workload archive")
+    if workload_archive_digest(image_archive) != match.group(2):
+        raise ValueError("SDK workload archive digest does not match its immutable reference")
+    return image_reference, image_archive
+
+
 def _build_results(
     build_path: Path,
     inspect_path: Path,
@@ -113,17 +157,10 @@ def _build_results(
     workload_id: str,
     expected_repository: str,
 ) -> tuple[dict[str, Any], dict[str, Any], str, Path]:
-    build_path = build_path.resolve(strict=True)
-    inspect_path = inspect_path.resolve(strict=True)
-    archive_path = archive_path.resolve(strict=True)
     artifact_root = artifact_root.resolve(strict=True)
-    for path, label in (
-        (build_path, "SDK build result"),
-        (inspect_path, "SDK inspect result"),
-        (archive_path, "plugin archive"),
-    ):
-        if not path.is_relative_to(artifact_root):
-            raise ValueError(f"{label} escapes the isolated build directory")
+    build_path = _artifact_path(artifact_root, build_path, "SDK build result")
+    inspect_path = _artifact_path(artifact_root, inspect_path, "SDK inspect result")
+    archive_path = _artifact_path(artifact_root, archive_path, "plugin archive")
     build_result = _mapping(json.loads(build_path.read_text(encoding="utf-8")), "build result")
     inspect_result = _mapping(
         json.loads(inspect_path.read_text(encoding="utf-8")), "inspect result"
@@ -132,39 +169,19 @@ def _build_results(
     artifact_digest = build_result.get("pluginArtifactDigest")
     if not isinstance(artifact_digest, str) or not _SHA256.fullmatch(artifact_digest):
         raise ValueError("SDK build result has an invalid artifact digest")
-    images = build_result.get("images")
-    image_reference = None
-    if isinstance(images, list):
-        entry = next(
-            (
-                image
-                for image in images
-                if isinstance(image, dict) and image.get("workload") == workload_id
-            ),
-            None,
-        )
-        if isinstance(entry, dict):
-            image_reference = entry.get("reference")
-    match = (
-        _IMAGE_REFERENCE.fullmatch(image_reference) if isinstance(image_reference, str) else None
+    image_reference, image_archive = _workload_image(
+        build_result, workload_id, expected_repository, artifact_root
     )
-    if match is None or match.group(1) != expected_repository:
-        raise ValueError(f"build result has an unexpected workload image: {image_reference!r}")
-    image_archive_value = entry.get("archive") if isinstance(entry, dict) else None
-    if not isinstance(image_archive_value, str):
-        raise ValueError("SDK build result does not identify the workload archive")
-    image_archive = Path(image_archive_value).resolve(strict=True)
-    if not image_archive.is_relative_to(artifact_root):
-        raise ValueError("SDK workload archive escapes the isolated build directory")
-    if workload_archive_digest(image_archive) != match.group(2):
-        raise ValueError("SDK workload archive digest does not match its immutable reference")
     if inspect_result.get("artifactDigest") != artifact_digest:
         raise ValueError("inspect result does not match the artifact produced by build")
     return build_result, inspect_result, image_reference, image_archive
 
 
-def _archived_plugin_descriptor(archive_path: str) -> tuple[dict[str, Any], str]:
-    with tarfile.open(archive_path, mode="r:*") as archive:
+def _archived_plugin_descriptor(
+    artifact_root: Path, archive_path: str | Path
+) -> tuple[dict[str, Any], str]:
+    safe_archive_path = _artifact_path(artifact_root, archive_path, "plugin archive")
+    with tarfile.open(safe_archive_path, mode="r:*") as archive:
         index_file = archive.extractfile("index.json")
         if index_file is None:
             raise ValueError("archive is missing its OCI index")
@@ -236,9 +253,7 @@ def _assert_binding_archive(
     recorded = build_result.get("bindingArchive")
     if not isinstance(recorded, str) or not Path(recorded).name:
         raise ValueError("build result does not name a runtime binding archive")
-    archive_path = Path(recorded).resolve(strict=True)
-    if not archive_path.is_relative_to(artifact_root.resolve()):
-        raise ValueError("runtime binding archive escapes the isolated build directory")
+    archive_path = _artifact_path(artifact_root, recorded, "runtime binding archive")
     artifact = read_runtime_binding_archive(archive_path)
     if artifact.binding_document.descriptor.digest != build_result.get("bindingDocumentDigest"):
         raise ValueError("runtime binding document digest differs from the build result")
@@ -286,7 +301,9 @@ def main() -> None:
         workload_id,
         expected_repository,
     )
-    plugin_descriptor, descriptor_digest = _archived_plugin_descriptor(str(args.plugin_archive))
+    plugin_descriptor, descriptor_digest = _archived_plugin_descriptor(
+        args.artifact_root, args.plugin_archive
+    )
     if inspect_result.get("compiledDigest") != descriptor_digest:
         raise ValueError("inspect result does not match the archived plugin descriptor")
     _assert_plugin_identity(plugin_directory, source_plugin, plugin_descriptor)

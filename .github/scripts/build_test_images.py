@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+PLUGIN_MANIFEST = "plugin.yaml"
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 
 from step_type_artifacts import (  # noqa: E402
@@ -104,7 +105,8 @@ def _build_plugin(plugin: str, cli: str, build_root: Path, platform: str) -> dic
     settings = yaml.safe_load((source_root / "syntara-plugin.yaml").read_text(encoding="utf-8"))
     binding_path = source_root / "runtime-bindings.yaml"
 
-    settings["manifest"] = str((source_root / "plugin.yaml").resolve())
+    manifest_path = source_root / PLUGIN_MANIFEST
+    settings["manifest"] = str(manifest_path.resolve())
     settings["build"]["runtimeBindings"] = str(binding_path.resolve())
     settings["build"]["artifactOutput"] = str((sdk_dist / f"{plugin}.oci.tar").resolve())
     workload = settings["build"]["workloads"][plugin]
@@ -120,7 +122,7 @@ def _build_plugin(plugin: str, cli: str, build_root: Path, platform: str) -> dic
         [
             cli,
             "build",
-            str(source_root / "plugin.yaml"),
+            str(manifest_path),
             "--settings",
             str(settings_path),
             "--runtime-bindings",
@@ -141,7 +143,7 @@ def _build_plugin(plugin: str, cli: str, build_root: Path, platform: str) -> dic
         expect_ok=False,
     )
 
-    source_plugin = yaml.safe_load((source_root / "plugin.yaml").read_text(encoding="utf-8"))
+    source_plugin = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     workload_id = next(iter(source_plugin["spec"]["workloads"]))
     images = build_result.get("images")
     if not isinstance(images, list):
