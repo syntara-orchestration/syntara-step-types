@@ -51,7 +51,21 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
             )
         try:
             try:
-                return execute_http_request(inputs, context.cancellation)
+                request_inputs = inputs
+                if inputs.credential_name is not None:
+                    credential = context.credential(inputs.credential_name).read()
+                    token = credential.get("token")
+                    if not isinstance(token, str) or not token:
+                        raise ContainerInvocationError(
+                            FailureCode.POLICY_DENIED,
+                            "The configured HTTP credential is unavailable.",
+                            retryable=False,
+                            outcome="not_started",
+                        )
+                    headers = dict(inputs.headers)
+                    headers["Authorization"] = f"Bearer {token}"
+                    request_inputs = inputs.model_copy(update={"headers": headers})
+                return execute_http_request(request_inputs, context.cancellation)
             except ContainerInvocationError as exc:
                 code = exc.code.value if isinstance(exc.code, FailureCode) else str(exc.code)
                 category = _ERROR_CATEGORIES.get(exc.code, ErrorCategory.INTERNAL)
