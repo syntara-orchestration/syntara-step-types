@@ -14,3 +14,5 @@ spec:
       image: http-request-runner
   targets:
     - manifest.yaml
+    - src/syntara_node_http_request/integration.yaml
+    - src/syntara_node_http_request/bearer-credential.yaml

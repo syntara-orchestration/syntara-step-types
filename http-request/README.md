@@ -13,6 +13,7 @@ in-flight requests and releases their execution capacity.
 | --- | --- | --- | --- | --- |
 | `url` | string | Yes | — | Target URL (`http://` or `https://` only; SSRF-protected) |
 | `method` | string | No | `GET` | HTTP method |
+| `credential_name` | string | No | — | Declared logical bearer credential name. The HTTP node reads its `token` field through the SDK and sets the `Authorization: Bearer` header. |
 | `headers` | object | No | `{}` | Request headers |
 | `body` | object\|string | No | `null` | Request body |
 | `query_params` | object | No | `{}` | Query string parameters |

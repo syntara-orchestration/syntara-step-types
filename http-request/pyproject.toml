@@ -14,3 +14,5 @@ include = ["manifest.yaml"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "manifest.yaml" = "syntara_node_http_request/manifest.yaml"
+"src/syntara_node_http_request/integration.yaml" = "syntara_node_http_request/integration.yaml"
+"src/syntara_node_http_request/bearer-credential.yaml" = "syntara_node_http_request/bearer-credential.yaml"
