@@ -63,11 +63,11 @@ as a `Result` with a nonzero `status_code` and structured `error_result_json`. T
 ## Building and running locally
 
 ```bash
-# Build all workload images (from repo root)
-make node-images CONTAINER_ENGINE=docker TAG=local-test
+# Build workload images through the SDK (from repo root).
+make node-images CONTAINER_ENGINE=podman TAG=local-test
 
 # Run a Python script step container
-docker run --rm -p 50051:50051 localhost/syntara-node-script-python:local-test
+podman run --rm -p 50051:50051 localhost/syntara-node-script-python:local-test
 ```
 
 Inspect health or send an invocation using any gRPC client pointed at `localhost:50051`

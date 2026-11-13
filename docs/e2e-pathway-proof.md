@@ -28,14 +28,16 @@ Direct gRPC probe (no EP cluster). This run registered the static step identity 
 3. Wrapper keys (`statusCode`, `errorResult`) were **not** in the business
    output object (they stay on the SDK `ContainerResult` envelope)
 
-Repeat anytime — the gRPC integration tests assert Health identity, the
-frozen business fields, and the absence of wrapper keys for both python and
-bash:
+The gRPC integration suite asserts Health identity, frozen business fields,
+and the absence of wrapper keys for both Python and Bash. Run the full staged
+workflow with:
 
 ```bash
-make node-images TAG=pathway-proof
-TEST_TAG=pathway-proof make test-integration
+make test-all
 ```
+
+To run only integration tests, first run `make test-build`; the integration
+target then consumes those exact SDK archives without rebuilding them.
 
 See `tests/integration/test_script_grpc.py`.
 
@@ -43,7 +45,7 @@ See `tests/integration/test_script_grpc.py`.
 
 ```bash
 # after EP kind target is up (see syntara-execution-plane docs)
-# kind reads Docker's store, so transfer an archive from the default Podman build
+# The Make target loads the SDK-built archive into Podman's local store.
 podman save localhost/syntara-node-script-python:pathway-proof --output /tmp/script-python.tar
 kind load image-archive /tmp/script-python.tar --name <ep-kind-name>
 
@@ -70,7 +72,7 @@ Assert work item `completed` and result business fields include `return_code` /
 # settings / env equivalent
 script_nodes_enabled: true
 node_container_images:
-  script-python: localhost/syntara-node-script-python:pathway-proof   # or Quay digest
+  script-python: localhost/syntara-node-script-python:pathway-proof   # or registry digest
   script-bash: localhost/syntara-node-script-bash:<tag>
 ```
 

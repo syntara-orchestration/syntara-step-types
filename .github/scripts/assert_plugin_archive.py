@@ -12,10 +12,10 @@ from urllib.parse import urlparse
 
 import yaml
 from syntara_plugin.sdk.runtime_binding_archive import read_runtime_binding_archive
+from syntara_plugin.sdk.workload import workload_archive_digest
 
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IMAGE_REFERENCE = re.compile(r"^(.+)@(sha256:[0-9a-f]{64})$")
-_WORKLOAD_TAG = re.compile(r"^\w[\w.-]{0,127}$", re.ASCII)
 _PLUGIN_MANIFEST_MEDIA_TYPE = "application/vnd.syntara.plugin.manifest.v1+yaml"
 _PLUGIN_DIRECTORIES = {
     name: Path(name) for name in ("http-request", "script-python", "script-bash")
@@ -106,16 +106,24 @@ def _source_configuration(
 
 
 def _build_results(
-    plugin_directory: Path,
-    plugin_name: str,
-    workload_tag: str,
+    build_path: Path,
+    inspect_path: Path,
+    archive_path: Path,
+    artifact_root: Path,
     workload_id: str,
     expected_repository: str,
-) -> tuple[dict[str, Any], dict[str, Any], str, str]:
-    artifact_prefix = f"{plugin_name}-{workload_tag}"
-    build_path = _within(plugin_directory, f"dist/{artifact_prefix}-build.json")
-    inspect_path = _within(plugin_directory, f"dist/{artifact_prefix}-inspect.json")
-    archive_path = _within(plugin_directory, f"dist/{artifact_prefix}.oci.tar")
+) -> tuple[dict[str, Any], dict[str, Any], str, Path]:
+    build_path = build_path.resolve(strict=True)
+    inspect_path = inspect_path.resolve(strict=True)
+    archive_path = archive_path.resolve(strict=True)
+    artifact_root = artifact_root.resolve(strict=True)
+    for path, label in (
+        (build_path, "SDK build result"),
+        (inspect_path, "SDK inspect result"),
+        (archive_path, "plugin archive"),
+    ):
+        if not path.is_relative_to(artifact_root):
+            raise ValueError(f"{label} escapes the isolated build directory")
     build_result = _mapping(json.loads(build_path.read_text(encoding="utf-8")), "build result")
     inspect_result = _mapping(
         json.loads(inspect_path.read_text(encoding="utf-8")), "inspect result"
@@ -142,9 +150,17 @@ def _build_results(
     )
     if match is None or match.group(1) != expected_repository:
         raise ValueError(f"build result has an unexpected workload image: {image_reference!r}")
+    image_archive_value = entry.get("archive") if isinstance(entry, dict) else None
+    if not isinstance(image_archive_value, str):
+        raise ValueError("SDK build result does not identify the workload archive")
+    image_archive = Path(image_archive_value).resolve(strict=True)
+    if not image_archive.is_relative_to(artifact_root):
+        raise ValueError("SDK workload archive escapes the isolated build directory")
+    if workload_archive_digest(image_archive) != match.group(2):
+        raise ValueError("SDK workload archive digest does not match its immutable reference")
     if inspect_result.get("artifactDigest") != artifact_digest:
         raise ValueError("inspect result does not match the artifact produced by build")
-    return build_result, inspect_result, image_reference, str(archive_path)
+    return build_result, inspect_result, image_reference, image_archive
 
 
 def _archived_plugin_descriptor(archive_path: str) -> tuple[dict[str, Any], str]:
@@ -211,20 +227,18 @@ def _assert_workload_image(
 
 
 def _assert_binding_archive(
-    plugin_directory: Path,
+    artifact_root: Path,
     build_result: dict[str, Any],
     workload_id: str,
     image_reference: str,
 ) -> None:
-    """Tie the RuntimeBinding archive in dist/ to the build result and its image."""
+    """Tie the RuntimeBinding archive to the build result and its image."""
     recorded = build_result.get("bindingArchive")
     if not isinstance(recorded, str) or not Path(recorded).name:
         raise ValueError("build result does not name a runtime binding archive")
-    # The build result records the builder's absolute path; the archive lives in dist/.
-    relative = f"dist/{Path(recorded).name}"
-    if not (plugin_directory / relative).is_file():
-        raise ValueError(f"runtime binding archive is missing: {relative}")
-    archive_path = _within(plugin_directory, relative)
+    archive_path = Path(recorded).resolve(strict=True)
+    if not archive_path.is_relative_to(artifact_root.resolve()):
+        raise ValueError("runtime binding archive escapes the isolated build directory")
     artifact = read_runtime_binding_archive(archive_path)
     if artifact.binding_document.descriptor.digest != build_result.get("bindingDocumentDigest"):
         raise ValueError("runtime binding document digest differs from the build result")
@@ -253,34 +267,32 @@ def _assert_binding_archive(
         raise ValueError("runtime binding default image differs from the SDK build result")
 
 
-def _workload_tag(value: str) -> str:
-    if not _WORKLOAD_TAG.fullmatch(value):
-        raise argparse.ArgumentTypeError(
-            "workload tag contains invalid path or image-tag characters"
-        )
-    return value
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("plugin", choices=tuple(_PLUGIN_DIRECTORIES))
-    parser.add_argument(
-        "workload_tag", type=_workload_tag, help="Prefix naming this build's dist artifact files"
-    )
+    parser.add_argument("--build-result", type=Path, required=True)
+    parser.add_argument("--inspect-result", type=Path, required=True)
+    parser.add_argument("--plugin-archive", type=Path, required=True)
+    parser.add_argument("--artifact-root", type=Path, required=True)
     args = parser.parse_args()
 
     plugin_directory = _within(Path.cwd(), str(_PLUGIN_DIRECTORIES[args.plugin]))
     source_plugin, _, workload_id, expected_repository = _source_configuration(plugin_directory)
     build_result, inspect_result, image_reference, archive_path = _build_results(
-        plugin_directory, args.plugin, args.workload_tag, workload_id, expected_repository
+        args.build_result,
+        args.inspect_result,
+        args.plugin_archive,
+        args.artifact_root,
+        workload_id,
+        expected_repository,
     )
-    plugin_descriptor, descriptor_digest = _archived_plugin_descriptor(archive_path)
+    plugin_descriptor, descriptor_digest = _archived_plugin_descriptor(str(args.plugin_archive))
     if inspect_result.get("compiledDigest") != descriptor_digest:
         raise ValueError("inspect result does not match the archived plugin descriptor")
     _assert_plugin_identity(plugin_directory, source_plugin, plugin_descriptor)
     _assert_workload_image(source_plugin, plugin_descriptor)
-    _assert_binding_archive(plugin_directory, build_result, workload_id, image_reference)
-    print(f"Verified {args.plugin}: {image_reference}")
+    _assert_binding_archive(args.artifact_root, build_result, workload_id, image_reference)
+    print(f"Verified {args.plugin}: {image_reference}; workload archive {archive_path}")
 
 
 if __name__ == "__main__":

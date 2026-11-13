@@ -20,7 +20,7 @@ env:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -36,18 +36,16 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - run: make install
         working-directory: step-types
-      - run: make lint typecheck
-        working-directory: step-types
-      - name: Check compatibility-matrix drift
-        run: make sdk-plugin-drift
+      - run: make lint typecheck sdk-plugin-drift
         working-directory: step-types
 
-  tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  unit-tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-15]
         python: ['3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v7
@@ -71,52 +69,21 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: test-results-python-${{ matrix.python }}
+          name: unit-results-${{ matrix.os }}-python-${{ matrix.python }}
           path: step-types/test-results/
           retention-days: 7
 
-  integration-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [quality]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          path: step-types
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - uses: astral-sh/setup-uv@v7
-        with:
-          version: ${{ env.UV_VERSION }}
-      - run: make install
-        working-directory: step-types
-      - name: Build container images for integration tests
-        run: make node-images TAG=integration-test
-        working-directory: step-types
-        env:
-          CONTAINER_ENGINE: docker
-      - name: Run integration tests
-        run: make test-integration-ci
-        working-directory: step-types
-        env:
-          CONTAINER_ENGINE: docker
-          TEST_TAG: integration-test
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: integration-test-results
-          path: step-types/test-results/
-          retention-days: 7
-
-  sdk-plugin-checks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+  image-tests:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        plugin: [http-request, script-python, script-bash]
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
         with:
@@ -134,51 +101,34 @@ jobs:
           sudo apt-get install --no-install-recommends -y podman
       - run: make install
         working-directory: step-types
-      - name: Start temporary OCI registry
-        run: |
-          podman run --detach --name syntara-ci-registry --publish 5000:5000 docker.io/library/registry:2
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent http://localhost:5000/v2/; then
-              exit 0
-            fi
-            sleep 1
-          done
-          podman logs syntara-ci-registry
-          exit 1
-      - name: Validate plugin workspace
-        run: make sdk-plugin-validate PLUGIN=${{ matrix.plugin }}
+      - name: Build all step images with the SDK
+        run: make test-build
         working-directory: step-types
-      - name: Run plugin in source mode
-        run: make sdk-plugin-run PLUGIN=${{ matrix.plugin }}
-        working-directory: step-types
-      - name: Build workload and inspect archive
-        run: make sdk-plugin-build-inspect PLUGIN=${{ matrix.plugin }} SDK_WORKLOAD_TAG=ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+      - name: Test image gRPC front doors
+        run: make test-integration-ci
         working-directory: step-types
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: sdk-plugin-${{ matrix.plugin }}
-          path: step-types/${{ matrix.plugin }}/dist/
+          name: image-test-results-${{ matrix.platform }}
+          path: |
+            step-types/.test-artifacts/
+            step-types/test-results/
           retention-days: 7
-      - name: Stop temporary OCI registry
-        if: always()
-        run: podman stop syntara-ci-registry || true
 
   steps-ci:
     name: steps-ci
     if: always()
-    needs: [quality, tests, integration-tests, sdk-plugin-checks]
-    runs-on: ubuntu-latest
+    needs: [quality, unit-tests, image-tests]
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every gate to pass
+      - name: Require all test gates to pass
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
-          TEST_RESULT: ${{ needs.tests.result }}
-          INTEGRATION_RESULT: ${{ needs.integration-tests.result }}
-          SDK_PLUGIN_RESULT: ${{ needs.sdk-plugin-checks.result }}
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
+          IMAGE_RESULT: ${{ needs.image-tests.result }}
         run: |
           test "$QUALITY_RESULT" = success
-          test "$TEST_RESULT" = success
-          test "$INTEGRATION_RESULT" = success
-          test "$SDK_PLUGIN_RESULT" = success
+          test "$UNIT_RESULT" = success
+          test "$IMAGE_RESULT" = success

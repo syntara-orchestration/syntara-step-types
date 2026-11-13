@@ -1,92 +1,80 @@
-"""Dispatch real gRPC calls using identities compiled from the shipped plugin descriptors."""
+"""Dispatch compiled plugin targets through the shipped image gRPC services."""
 
 from __future__ import annotations
 
-import importlib
 import json
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
+from typing import Any
 
-import grpc
 import pytest
-from syntara_node_http_request import HttpOutput
 from syntara_plugin.contracts import canonical_json_digest
-from syntara_plugin.runtime import add_container_runtime_service, step_registry_from_bindings
-from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
+from syntara_plugin.runtime.protocol import container_pb2
 from syntara_plugin.sdk import BuildRequest, compile_workspace
 
 from tests.integration.helpers import execute_events
+from tests.integration.service_types import ImageServices
+from tests.support.step_type_artifacts import ROOT, load_inventory
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.mark.parametrize(
-    ("step", "module_name", "inputs", "expected"),
+    ("step", "inputs", "expected"),
     [
         (
             "script-python",
-            "syntara_node_script.python",
             {"code": 'print("dispatched")'},
             {"stdout": "dispatched\n"},
         ),
         (
             "script-bash",
-            "syntara_node_script.bash",
             {"code": "printf dispatched"},
             {"stdout": "dispatched"},
         ),
-        (
-            "http-request",
-            "syntara_node_http_request.__main__",
-            {"url": "https://example.com/"},
-            {"body": {"dispatched": True}},
-        ),
+        ("http-request", {}, {"body": {"args": {}}}),
     ],
 )
-def test_execute_using_compiled_plugin_target(step, module_name, inputs, expected, monkeypatch):
-    root = Path(__file__).resolve().parents[2]
+def test_execute_using_compiled_plugin_target(
+    step: str,
+    inputs: dict[str, Any],
+    expected: dict[str, Any],
+    image_services: ImageServices,
+) -> None:
+    inventory = load_inventory()
+    entry = inventory["plugins"][step]
+    workload_id = entry["workloadId"]
     compiled = compile_workspace(
         BuildRequest(
-            root_manifest=root / step / "plugin.yaml",
-            image_bindings={f"{step}-runner": f"localhost/syntara/{step}@sha256:" + "a" * 64},
+            root_manifest=ROOT / step / "plugin.yaml",
+            image_bindings={f"{workload_id}-runner": entry["imageReference"]},
         )
     )
     target = compiled.descriptor["spec"]["targets"][0]
-    bootstrap = importlib.import_module(module_name)
-    registry = step_registry_from_bindings(bootstrap.create_bindings(root / step / "manifest.yaml"))
-    # Only the remote HTTP call is replaced. Identity, schemas, binding and gRPC dispatch are real.
-    monkeypatch.setattr(
-        "syntara_node_http_request.execute_http_request",
-        lambda *args: HttpOutput(status_code=200, body={"dispatched": True}, headers={}, elapsed=0),
-    )
+    if step == "http-request":
+        inputs = {"url": f"{image_services.upstream_url}/get"}
+
     output_digest = canonical_json_digest(target["output"])
-    with ThreadPoolExecutor(max_workers=10) as dispatch:
-        server = grpc.server(dispatch)
-        add_container_runtime_service(server, registry)
-        port = server.add_insecure_port("127.0.0.1:0")
-        server.start()
-        try:
-            with grpc.insecure_channel(f"127.0.0.1:{port}") as channel:
-                stub = container_pb2_grpc.ContainerServiceStub(channel)
-                assert (
-                    target["identity"]
-                    in stub.Health(container_pb2.HealthRequest(), timeout=1).step_revision_ids
-                )
-                request = container_pb2.ExecuteRequest(
-                    invocation_id=f"compiled-{step}",
-                    workflow_run_id="wf-compiled-target",
-                    step_revision_id=target["identity"],
-                    runtime_abi="syntara.container/v1alpha1",
-                    inputs_json=json.dumps(inputs).encode(),
-                    runtime_context_json=json.dumps({"outputSchemaDigest": output_digest}).encode(),
-                    timeout_seconds=5,
-                )
-                events = list(execute_events(stub, request, timeout=5))
-                assert len(events) == 1
-                assert events[0].HasField("result"), events[0]
-                assert events[0].result.output_schema_digest == output_digest
-                output = json.loads(events[0].result.output_json)
-                for key, value in expected.items():
-                    assert output[key] == value
-        finally:
-            server.stop(0).wait()
+    request = container_pb2.ExecuteRequest(
+        invocation_id=f"compiled-{step}",
+        workflow_run_id="wf-compiled-target",
+        step_revision_id=target["identity"],
+        runtime_abi="syntara.container/v1alpha1",
+        inputs_json=json.dumps(inputs).encode(),
+        runtime_context_json=json.dumps({"outputSchemaDigest": output_digest}).encode(),
+        timeout_seconds=10,
+    )
+    stub = {
+        "http-request": image_services.http,
+        "script-python": image_services.python,
+        "script-bash": image_services.bash,
+    }[step]
+    assert (
+        target["identity"]
+        in stub.Health(container_pb2.HealthRequest(), timeout=2).step_revision_ids
+    )
+    events = list(execute_events(stub, request, timeout=12))
+    assert len(events) == 1
+    assert events[0].HasField("result"), events[0]
+    assert events[0].result.output_schema_digest == output_digest
+    output = json.loads(events[0].result.output_json)
+    for key, value in expected.items():
+        assert output[key] == value

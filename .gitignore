@@ -4,3 +4,10 @@ __pycache__/
 *.pyc
 .sdk-contracts/
 .sdk-runtime/
+/.test-artifacts/
+/test-results/
+/http-request/dist/
+/script-python/dist/
+/script-bash/dist/
+.coverage
+/coverage.xml
