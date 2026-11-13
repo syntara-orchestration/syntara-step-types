@@ -28,6 +28,8 @@ def create_bindings(manifest_path: Path | None = None) -> StepBindings:
     """Build the exact installed bindings used by the container entrypoint."""
     if manifest_path is None:
         manifest_path = Path(__file__).parent / "manifest.yaml"
+        if not manifest_path.exists():
+            manifest_path = Path(__file__).parents[2] / "manifest.yaml"
     with manifest_path.open() as f:
         manifest_doc = yaml.safe_load(f)
 
@@ -36,6 +38,10 @@ def create_bindings(manifest_path: Path | None = None) -> StepBindings:
         step_identity=STEP_IDENTITY,
         manifest=manifest_doc,
         assets={},  # No external assets for inline schemas
+        credential_targets=[
+            yaml.safe_load((Path(__file__).parent / target).read_text())
+            for target in ("integration.yaml", "bearer-credential.yaml")
+        ],
     )
 
     # Bind using the installed Step manifest

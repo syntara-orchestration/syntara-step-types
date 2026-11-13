@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import socket
+from threading import Event, Thread
 from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
 from syntara_node_http_request import HttpInput, HttpMethod, HttpRequestStep
+from syntara_node_http_request.__main__ import create_bindings
 from syntara_plugin.runtime import ExecutionContext, FailureCode, StepFailure
+from syntara_plugin.runtime.credential_callback import CallbackCredentialProvider
+from syntara_plugin.runtime.protocol import container_pb2
 
 
 @pytest.fixture
@@ -55,6 +60,64 @@ def test_successful_get(step: HttpRequestStep, context: ExecutionContext, mock_d
     assert output.status_code == 200
     assert output.body == {"ok": True}
     assert output.elapsed >= 0
+
+
+@respx.mock
+def test_http_request_reads_bearer_credential_from_sdk_callback(
+    step: HttpRequestStep, mock_dns
+) -> None:
+    # Binding construction validates the installed HTTP credential declaration graph.
+    create_bindings()
+
+    token = "mock-callback-token"
+    callback_requests: list[container_pb2.CredentialRequest] = []
+    callback_replied = Event()
+    provider: CallbackCredentialProvider
+
+    def mock_callback(request: container_pb2.CredentialRequest) -> None:
+        callback_requests.append(request)
+        response = container_pb2.CredentialResponse(
+            invocation_id=request.invocation_id,
+            request_id=request.request_id,
+            document_json=json.dumps({"token": token}).encode(),
+        )
+
+        def deliver_response() -> None:
+            provider.receive(response)
+            callback_replied.set()
+
+        Thread(target=deliver_response, daemon=True).start()
+
+    provider = CallbackCredentialProvider(
+        invocation_id="credential-invocation",
+        send=mock_callback,
+        cancellation=Event(),
+        timeout=5,
+    )
+    context = ExecutionContext(
+        invocation_id="credential-invocation", credential_provider=provider
+    )._with_credentials(("syntara.http.bearer",))
+    route = respx.get("https://93.184.216.34/secure").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+
+    try:
+        output = step.run(
+            HttpInput(
+                url="https://example.com/secure",
+                credential_name="syntara.http.bearer",
+            ),
+            context,
+        )
+    finally:
+        provider.close()
+
+    assert output.body == {"ok": True}
+    assert route.calls[0].request.headers["authorization"] == f"Bearer {token}"
+    assert len(callback_requests) == 1
+    assert callback_requests[0].invocation_id == "credential-invocation"
+    assert callback_requests[0].name == "syntara.http.bearer"
+    assert callback_replied.wait(timeout=1)
 
 
 @respx.mock
