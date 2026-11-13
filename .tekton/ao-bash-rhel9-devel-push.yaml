@@ -58,7 +58,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-bash-devel
+    serviceAccountName: build-pipeline-ao-bash-devel
   workspaces:
     - name: git-auth
       secret:
