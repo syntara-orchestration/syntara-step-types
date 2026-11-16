@@ -6,10 +6,16 @@ metadata:
   description: Generic HTTP connection for the HTTP Request step.
 spec:
   id: syntara.http
-  endpointKinds: [http, https]
+  endpointKinds: [https]
   credentialTypes: [syntara.http.bearer]
   configuration:
     kind: inline
     value:
       type: object
       additionalProperties: false
+      required: [baseUrl]
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+          pattern: "^https://"

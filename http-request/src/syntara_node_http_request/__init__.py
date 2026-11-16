@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from urllib.parse import urlsplit
 
 from syntara_plugin.runtime import (
     ActionStep,
@@ -34,6 +35,38 @@ _ERROR_CATEGORIES = {
     FailureCode.POLICY_DENIED: ErrorCategory.POLICY,
     FailureCode.CANCELLED: ErrorCategory.CANCELLED,
 }
+_HTTP_ENDPOINT_CONTEXT_KEY = "httpEndpoint"
+
+
+def _credential_destination_matches(url: str, endpoint: object) -> bool:
+    """Require credentialed requests to target the selected HTTPS integration origin."""
+    if not isinstance(endpoint, str):
+        return False
+    try:
+        target = urlsplit(url)
+        configured = urlsplit(endpoint)
+        target_host = target.hostname
+        configured_host = configured.hostname
+        if (
+            target.scheme.lower() != "https"
+            or configured.scheme.lower() != "https"
+            or target_host is None
+            or configured_host is None
+            or target.username is not None
+            or target.password is not None
+            or configured.username is not None
+            or configured.password is not None
+            or configured.path not in {"", "/"}
+            or configured.query
+            or configured.fragment
+        ):
+            return False
+        return (target_host.casefold(), target.port or 443) == (
+            configured_host.casefold(),
+            configured.port or 443,
+        )
+    except ValueError:
+        return False
 
 
 class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
@@ -53,6 +86,15 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
             try:
                 request_inputs = inputs
                 if inputs.credential_name is not None:
+                    if not _credential_destination_matches(
+                        inputs.url, context.runtime_context.get(_HTTP_ENDPOINT_CONTEXT_KEY)
+                    ):
+                        raise ContainerInvocationError(
+                            FailureCode.POLICY_DENIED,
+                            "Credentialed HTTP requests must use the configured HTTPS endpoint.",
+                            retryable=False,
+                            outcome="not_started",
+                        )
                     credential = context.credential(inputs.credential_name).read()
                     token = credential.get("token")
                     if not isinstance(token, str) or not token:
@@ -63,6 +105,9 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
                             outcome="not_started",
                         )
                     headers = dict(inputs.headers)
+                    for name in tuple(headers):
+                        if name.casefold() == "authorization":
+                            del headers[name]
                     headers["Authorization"] = f"Bearer {token}"
                     request_inputs = inputs.model_copy(update={"headers": headers})
                 return execute_http_request(request_inputs, context.cancellation)

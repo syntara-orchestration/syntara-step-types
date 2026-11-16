@@ -95,7 +95,9 @@ def test_http_request_reads_bearer_credential_from_sdk_callback(
         timeout=5,
     )
     context = ExecutionContext(
-        invocation_id="credential-invocation", credential_provider=provider
+        invocation_id="credential-invocation",
+        runtime_context={"httpEndpoint": "https://example.com"},
+        credential_provider=provider,
     )._with_credentials(("syntara.http.bearer",))
     route = respx.get("https://93.184.216.34/secure").mock(
         return_value=httpx.Response(200, json={"ok": True})
@@ -106,6 +108,10 @@ def test_http_request_reads_bearer_credential_from_sdk_callback(
             HttpInput(
                 url="https://example.com/secure",
                 credential_name="syntara.http.bearer",
+                headers={
+                    "authorization": "Basic caller-value",
+                    "AUTHORIZATION": "Bearer caller-value",
+                },
             ),
             context,
         )
@@ -114,10 +120,32 @@ def test_http_request_reads_bearer_credential_from_sdk_callback(
 
     assert output.body == {"ok": True}
     assert route.calls[0].request.headers["authorization"] == f"Bearer {token}"
+    assert route.calls[0].request.headers.get_list("authorization") == [f"Bearer {token}"]
     assert len(callback_requests) == 1
     assert callback_requests[0].invocation_id == "credential-invocation"
     assert callback_requests[0].name == "syntara.http.bearer"
     assert callback_replied.wait(timeout=1)
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://example.com/secure", "https://attacker.example/collect"],
+)
+def test_credentialed_http_rejects_untrusted_destination_before_read(
+    step: HttpRequestStep, url: str
+) -> None:
+    context = ExecutionContext(
+        invocation_id="credential-invocation",
+        runtime_context={"httpEndpoint": "https://example.com"},
+    )._with_credentials(("syntara.http.bearer",))
+
+    with pytest.raises(StepFailure) as exc_info:
+        step.run(
+            HttpInput(url=url, credential_name="syntara.http.bearer"),
+            context,
+        )
+
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
 @respx.mock
