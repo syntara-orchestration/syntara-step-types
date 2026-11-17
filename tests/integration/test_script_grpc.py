@@ -43,7 +43,6 @@ def _execute(
 ) -> dict:
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        workflow_run_id="test-wf-001",
         step_revision_id=step_revision_id,
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"code": code, "environment": environment or {}}).encode(),
@@ -127,7 +126,6 @@ def test_script_failure_handling(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="test-fail-001",
-        workflow_run_id="test-wf-001",
         step_revision_id=_PYTHON_STEP_REVISION_ID,
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"code": "raise SystemExit(1)", "environment": {}}).encode(),
@@ -165,7 +163,6 @@ def _assert_admission_control_busy_and_control_rpcs(
     def _hold_open(inv_id: str) -> str:
         req = container_pb2.ExecuteRequest(
             invocation_id=inv_id,
-            workflow_run_id=f"wf-admission-{invocation_prefix}",
             step_revision_id=step_revision_id,
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,
@@ -191,7 +188,6 @@ def _assert_admission_control_busy_and_control_rpcs(
         # --- Excess Execute must be rejected immediately as busy ---
         busy_req = container_pb2.ExecuteRequest(
             invocation_id=f"{invocation_prefix}-admission-excess-001",
-            workflow_run_id=f"wf-admission-{invocation_prefix}",
             step_revision_id=step_revision_id,
             runtime_abi=_RUNTIME_ABI,
             inputs_json=inputs,

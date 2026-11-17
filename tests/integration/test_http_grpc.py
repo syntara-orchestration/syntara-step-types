@@ -35,7 +35,6 @@ def _execute(
 
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        workflow_run_id="test-wf-001",
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps(inputs).encode(),
@@ -88,7 +87,6 @@ def test_query_params(
 def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="test-ssrf-001",
-        workflow_run_id="test-wf-001",
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"url": "http://192.168.1.1/secret"}).encode(),

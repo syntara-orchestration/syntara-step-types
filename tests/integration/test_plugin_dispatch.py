@@ -55,7 +55,6 @@ def test_execute_using_compiled_plugin_target(
     output_digest = canonical_json_digest(target["output"])
     request = container_pb2.ExecuteRequest(
         invocation_id=f"compiled-{step}",
-        workflow_run_id="wf-compiled-target",
         step_revision_id=target["identity"],
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps(inputs).encode(),

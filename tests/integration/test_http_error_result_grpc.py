@@ -31,7 +31,6 @@ def test_http_errors_are_serialized_in_result_event(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id=f"http-error-{path}",
-        workflow_run_id="wf-http-error",
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps(

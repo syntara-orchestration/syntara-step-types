@@ -22,7 +22,6 @@ def _upstream_state(
 ) -> dict:
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        workflow_run_id="wf-http-cancel",
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps({"url": f"{url}/state"}).encode(),
@@ -37,7 +36,6 @@ def test_http_cancel_stops_io_and_keeps_control_rpcs_available(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="http-cancel-regression",
-        workflow_run_id="wf-cancel",
         step_revision_id=_STEP_REVISION_ID,
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps({"url": f"{test_upstream}/cancel"}).encode(),

@@ -93,7 +93,6 @@ async def call_script_step(
     # Create request
     request = container_pb2.ExecuteRequest(
         invocation_id="test-script-001",
-        workflow_run_id="test-wf-001",
         step_revision_id=step_revision_id,
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=inputs_json,
@@ -198,7 +197,6 @@ async def call_http_step(
     # Create request
     request = container_pb2.ExecuteRequest(
         invocation_id="test-http-001",
-        workflow_run_id="test-wf-001",
         step_revision_id="syntara.http-request.http-request",
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=inputs_json,
