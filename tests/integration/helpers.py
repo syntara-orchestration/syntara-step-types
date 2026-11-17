@@ -17,7 +17,7 @@ def execute_events(
 ):
     """Yield ExecutionEvents from the bidi Execute stream.
 
-    Bidi protocol (contracts 0.1.0a4): the client opens the stream with the
+    Bidi protocol (contracts 0.1.0a5): the client opens the stream with the
     ExecuteRequest. A credential request fails the test: these steps declare
     no credentials, so the server is never expected to ask for one.
     """

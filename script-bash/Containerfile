@@ -17,7 +17,17 @@ RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
           "syntara-plugin-contracts==${CONTRACTS_VERSION}"; \
     fi
 
-FROM base
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:2d4c4551af6831dcd26bbf86108c4385de5183ec8fe6b5868f6f9640fe47f4ed
+
+USER 0
+
+RUN microdnf --disableplugin=subscription-manager install --setopt=install_weak_deps=0 --nodocs -y python3.12 python3.12-pip python3.12-cffi \
+    && microdnf clean all
+
+RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+
+WORKDIR /app
+COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/manifest.yaml /app/manifest.yaml
 COPY script-runtime/src /app/src

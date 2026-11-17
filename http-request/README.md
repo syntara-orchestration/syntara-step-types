@@ -33,10 +33,13 @@ in-flight requests and releases their execution capacity.
 From the repository root:
 
 ```bash
-make node-image NODE=http-request CONTAINER_ENGINE=docker TAG=local-test
+make node-image NODE=http-request TAG=local-test
 ```
 
-Build context must be the repository root so the workspace packages resolve correctly.
+The SDK build creates the workload OCI archive; Make loads it into the selected
+local container engine as `localhost/syntara-node-http-request:local-test`. The
+plugin's build context is the repository root so workspace packages resolve
+correctly.
 
 ## Example inputs (`example.json`)
 

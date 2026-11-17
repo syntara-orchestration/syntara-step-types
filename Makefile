@@ -7,11 +7,8 @@ TAG ?= dev
 NODE ?= http-request
 PLUGIN ?=
 SDK_WORKLOAD_TAG ?= ci-$(shell date +%s)
-CONTRACTS_VERSION ?=
-CONTRACTS_VERSION_BUILD_ARG = $(if $(strip $(CONTRACTS_VERSION)),--build-arg CONTRACTS_VERSION="$(CONTRACTS_VERSION)",)
 UV ?= uv
-SOURCE_URL ?= https://github.com/syntara-orchestration/syntara-step-types
-VCS_REF ?= $(shell git rev-parse HEAD)
+PYTEST_ARGS ?=
 
 .PHONY: install
 install:
@@ -30,34 +27,43 @@ typecheck:
 	$(UV) run --frozen --all-packages mypy --config-file pyproject.toml \
 		$(addsuffix /src,$(PYTHON_PACKAGES))
 
-.PHONY: test
-test:
-	$(UV) run --frozen --all-packages pytest -m "not integration"
+.PHONY: test test-unit
+test: test-unit
+
+test-unit:
+	$(UV) run --frozen --all-packages pytest -m "not integration" $(PYTEST_ARGS)
+
+.PHONY: test-build
+test-build:
+	$(UV) run --frozen --all-packages python .github/scripts/build_test_images.py
 
 .PHONY: test-integration
 test-integration:
-	$(UV) run --frozen --all-packages pytest -m integration
+	$(UV) run --frozen --all-packages python .github/scripts/validate_test_build.py
+	$(UV) run --frozen --all-packages pytest -m integration $(PYTEST_ARGS)
 
 .PHONY: test-all
 test-all:
-	$(UV) run --frozen --all-packages pytest
+	$(MAKE) test-unit
+	$(MAKE) test-build
+	$(MAKE) test-integration
+
+.PHONY: test-clean
+test-clean:
+	rm -rf .test-artifacts test-results .coverage coverage.xml
 
 .PHONY: test-ci
 test-ci:
-	$(UV) run --frozen --all-packages pytest -m "not integration" \
-		--junitxml=test-results/junit.xml \
-		--cov \
-		--cov-report=term-missing \
-		--cov-report=xml:test-results/coverage.xml
+	mkdir -p test-results
+	$(MAKE) test-unit PYTEST_ARGS="--junitxml=test-results/unit-junit.xml --cov --cov-report=term-missing --cov-report=xml:test-results/coverage.xml"
 
 .PHONY: test-integration-ci
 test-integration-ci:
-	$(UV) run --frozen --all-packages pytest -m integration \
-		--junitxml=test-results/integration-junit.xml \
-		-v
+	mkdir -p test-results
+	$(MAKE) test-integration PYTEST_ARGS="--junitxml=test-results/integration-junit.xml -v"
 
 .PHONY: check
-check: lint typecheck test
+check: lint typecheck test-unit
 
 .PHONY: sdk-plugin-check
 sdk-plugin-check:
@@ -83,11 +89,16 @@ sdk-plugin-run: sdk-plugin-check
 sdk-plugin-build-inspect: sdk-plugin-check
 	@mkdir -p "$(PLUGIN)/dist"
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin build \
+		--runtime-bindings runtime-bindings.yaml \
 		--output "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
 	jq -e '(.pluginArtifactDigest | test("^sha256:[0-9a-f]{64}$$")) and (.images[0].reference | test("@sha256:[0-9a-f]{64}$$"))' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json"
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin inspect "dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" --json > "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
 	jq -e '.artifactDigest | test("^sha256:[0-9a-f]{64}$$")' "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json"
-	$(UV) run --frozen --all-packages python .github/scripts/assert_plugin_archive.py "$(PLUGIN)" "$(SDK_WORKLOAD_TAG)"
+	$(UV) run --frozen --all-packages python .github/scripts/assert_plugin_archive.py "$(PLUGIN)" \
+		--build-result "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-build.json" \
+		--inspect-result "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG)-inspect.json" \
+		--plugin-archive "$(PLUGIN)/dist/$(PLUGIN)-$(SDK_WORKLOAD_TAG).oci.tar" \
+		--artifact-root "$(PLUGIN)/dist"
 
 # Assert the frozen output fields in docs/compatibility-matrix.md against each
 # plugin manifest's spec.output.required.
@@ -104,12 +115,15 @@ node-images:
 
 node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
-	$(CONTAINER_ENGINE) build \
-		$(CONTRACTS_VERSION_BUILD_ARG) \
-		--build-arg SOURCE_URL="$(SOURCE_URL)" \
-		--build-arg VCS_REF="$(VCS_REF)" \
-		-f $(NODE)/Containerfile \
-		-t $(REGISTRY)/syntara-node-$(NODE):$(TAG) .
+	$(MAKE) sdk-plugin-build-inspect PLUGIN=$(NODE) SDK_WORKLOAD_TAG=$(SDK_WORKLOAD_TAG)
+	@set -e; \
+	image_archive="$$(jq -r '.images[] | select(.buildTarget == "$(NODE)") | .archive' "$(NODE)/dist/$(NODE)-$(SDK_WORKLOAD_TAG)-build.json")"; \
+	test -n "$$image_archive"; \
+	case "$$image_archive" in /*) ;; *) image_archive="$(NODE)/$$image_archive" ;; esac; \
+	load_output="$$($(CONTAINER_ENGINE) load --input "$$image_archive")"; \
+	image_reference="$$(printf '%s\n' "$$load_output" | sed -nE 's/^Loaded image(s)?: //p')"; \
+	test -n "$$image_reference"; \
+	$(CONTAINER_ENGINE) tag "$$image_reference" "$(REGISTRY)/syntara-node-$(NODE):$(TAG)"
 
 .PHONY: push-node-images push-node-image
 push-node-images:
