@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import time
 import uuid
 from collections.abc import Iterator
@@ -14,7 +15,7 @@ import grpc
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.service_types import ImageServices
+from tests.integration.service_types import TEST_BEARER_TOKEN, ImageServices
 from tests.support.step_type_artifacts import (
     ARTIFACTS,
     PLUGINS,
@@ -96,7 +97,9 @@ def _wait_upstream(name: str, timeout: float = 20) -> None:
                 name,
                 "python3.12",
                 "-c",
-                "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=1).close()",
+                "import socket; "
+                "[socket.create_connection(('127.0.0.1', port), timeout=1).close() "
+                "for port in (8000, 8443)]",
             ],
             capture_output=True,
             text=True,
@@ -113,6 +116,40 @@ def _wait_upstream(name: str, timeout: float = 20) -> None:
         f"Controlled upstream {name} did not start: {last_error}\n"
         f"container logs:\n{_container_logs(name)}"
     )
+
+
+def _create_test_tls_certificate(directory: Path) -> tuple[Path, Path]:
+    certificate = directory / "upstream.crt"
+    private_key = directory / "upstream.key"
+    result = subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(private_key),
+            "-out",
+            str(certificate),
+            "-days",
+            "2",
+            "-subj",
+            "/CN=upstream.example",
+            "-addext",
+            "subjectAltName=DNS:upstream.example",
+            "-addext",
+            "basicConstraints=critical,CA:TRUE",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(f"Could not create the integration TLS certificate: {result.stderr}")
+    return certificate, private_key
 
 
 def _wait_ready(
@@ -151,12 +188,16 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
     channels: list[grpc.Channel] = []
     created_networks: list[str] = []
 
-    with ExitStack() as loaded_images:
+    with (
+        ExitStack() as loaded_images,
+        tempfile.TemporaryDirectory(prefix="syntara-http-tls-") as tls_directory,
+    ):
         images = {
             plugin: loaded_images.enter_context(load_workload_image(plugin, inventory))
             for plugin in PLUGINS
         }
         try:
+            certificate, private_key = _create_test_tls_certificate(Path(tls_directory))
             _command([_PODMAN, "network", "create", network])
             created_networks.append(network)
             _command(
@@ -182,6 +223,16 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                     upstream_name,
                     "--network",
                     upstream_network,
+                    "--volume",
+                    f"{certificate}:/tmp/upstream.crt:ro",
+                    "--volume",
+                    f"{private_key}:/tmp/upstream.key:ro",
+                    "--env",
+                    "TLS_CERT_FILE=/tmp/upstream.crt",
+                    "--env",
+                    "TLS_KEY_FILE=/tmp/upstream.key",
+                    "--env",
+                    f"EXPECTED_BEARER_TOKEN={TEST_BEARER_TOKEN}",
                     "--ip",
                     _UPSTREAM_IP,
                     "--entrypoint",
@@ -215,6 +266,20 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                 _command(command)
                 if plugin == "http-request":
                     _command([_PODMAN, "network", "connect", upstream_network, name])
+                    _command([_PODMAN, "cp", str(certificate), f"{name}:/tmp/upstream-ca.crt"])
+                    _command(
+                        [
+                            _PODMAN,
+                            "exec",
+                            name,
+                            "python3.12",
+                            "-c",
+                            "import certifi; from pathlib import Path; "
+                            "bundle=Path(certifi.where()); "
+                            "bundle.write_bytes(bundle.read_bytes()+b'\\n'+"
+                            "Path('/tmp/upstream-ca.crt').read_bytes())",
+                        ]
+                    )
                 port = _published_port(name, 50051)
                 channel, stubs[plugin] = _wait_ready(name, port)
                 channels.append(channel)
@@ -224,6 +289,7 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                 python=stubs["script-python"],
                 bash=stubs["script-bash"],
                 upstream_url=_UPSTREAM_URL,
+                https_upstream_url="https://upstream.example:8443",
             )
         except BaseException as error:
             diagnostic_dir = _save_diagnostics(
