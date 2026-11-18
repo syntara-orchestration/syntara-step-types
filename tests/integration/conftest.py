@@ -149,6 +149,10 @@ def _create_test_tls_certificate(directory: Path) -> tuple[Path, Path]:
     )
     if result.returncode:
         raise RuntimeError(f"Could not create the integration TLS certificate: {result.stderr}")
+    # The test upstream runs as UID 65532 from the script-python image. OpenSSL
+    # creates its private key as 0600, which that container user cannot read
+    # through the bind mount. This key is generated for this test run only.
+    private_key.chmod(0o644)
     return certificate, private_key
 
 
