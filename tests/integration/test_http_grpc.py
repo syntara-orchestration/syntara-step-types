@@ -85,9 +85,14 @@ def _execute(
     headers: dict[str, str] | None = None,
     query_params: dict[str, str] | None = None,
     body=None,
+    follow_redirects: bool = False,
     invocation_id: str = "test-http-001",
 ) -> dict:
-    inputs: dict = {"url": url, "method": method}
+    inputs: dict = {
+        "url": url,
+        "method": method,
+        "follow_redirects": follow_redirects,
+    }
     if headers:
         inputs["headers"] = headers
     if query_params:
@@ -144,6 +149,53 @@ def test_query_params(
     )
     assert result["status_code"] == 200
     assert result["body"]["args"] == {"foo": "bar"}
+
+
+def test_sdk_built_image_does_not_follow_redirects_by_default(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    result = _execute(http_stub, url=f"{test_upstream}/redirect/same-origin")
+
+    assert result["status_code"] == 302
+
+
+def test_sdk_built_image_follows_same_origin_redirect_over_grpc(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    result = _execute(
+        http_stub,
+        url=f"{test_upstream}/redirect/same-origin",
+        follow_redirects=True,
+        invocation_id="test-http-follow-redirect-001",
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["args"] == {"via": "redirect"}
+
+
+def test_sdk_built_image_blocks_private_redirect_over_grpc(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    request = container_pb2.ExecuteRequest(
+        invocation_id="test-http-private-redirect-001",
+        step_revision_id=_STEP_REVISION_ID,
+        runtime_abi=_RUNTIME_ABI,
+        inputs_json=json.dumps(
+            {"url": f"{test_upstream}/redirect/private", "follow_redirects": True}
+        ).encode(),
+        runtime_context_json=b"{}",
+        timeout_seconds=15,
+    )
+    events = list(execute_events(http_stub, request, timeout=20))
+    results = [event.result for event in events if event.HasField("result")]
+    failures = [event.failure for event in events if event.HasField("failure")]
+
+    assert not failures, f"Expected an error result, got runtime failures: {failures}"
+    assert len(results) == 1
+    assert results[0].status_code != 0
+    error = json.loads(results[0].error_result_json)
+    assert error["code"] == "POLICY_DENIED"
+    assert error["category"] == "policy"
 
 
 def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:

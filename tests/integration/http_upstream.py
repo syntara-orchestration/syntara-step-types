@@ -26,6 +26,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         global cancelled, started
         parsed = urlsplit(self.path)
+        if parsed.path == "/redirect/same-origin":
+            self.send_response(302)
+            self.send_header("Location", "/get?via=redirect")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if parsed.path == "/redirect/private":
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:8000/private")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if parsed.path == "/authorization":
             received = self.headers.get_all("Authorization", [])
             self._json(

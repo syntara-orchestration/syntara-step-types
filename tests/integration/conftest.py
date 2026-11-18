@@ -269,12 +269,22 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                 command.append(images[plugin])
                 _command(command)
                 if plugin == "http-request":
+                    user_id = _command([_PODMAN, "exec", name, "id", "-u"]).strip()
+                    if user_id != "65532":
+                        raise RuntimeError(
+                            f"HTTP workload must run as UID 65532, got UID {user_id!r}"
+                        )
                     _command([_PODMAN, "network", "connect", upstream_network, name])
                     _command([_PODMAN, "cp", str(certificate), f"{name}:/tmp/upstream-ca.crt"])
+                    # The workload itself runs as UID 65532. Use root only for
+                    # this test setup step because certifi's bundled CA file is
+                    # root-owned in the image; the HTTP server stays non-root.
                     _command(
                         [
                             _PODMAN,
                             "exec",
+                            "--user",
+                            "0",
                             name,
                             "python3.12",
                             "-c",
