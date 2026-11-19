@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import ssl
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -23,6 +26,29 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         global cancelled, started
         parsed = urlsplit(self.path)
+        if parsed.path == "/redirect/same-origin":
+            self.send_response(302)
+            self.send_header("Location", "/get?via=redirect")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if parsed.path == "/redirect/private":
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:8000/private")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if parsed.path == "/authorization":
+            received = self.headers.get_all("Authorization", [])
+            self._json(
+                200,
+                {
+                    "authorizationCount": len(received),
+                    "authorizationMatchesExpected": received
+                    == [f"Bearer {os.environ.get('EXPECTED_BEARER_TOKEN')}"],
+                },
+            )
+            return
         if parsed.path == "/get":
             args = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
             self._json(200, {"args": args})
@@ -71,4 +97,13 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
 
 
+def _serve_https() -> None:
+    server = Server(("0.0.0.0", 8443), Handler)
+    tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls.load_cert_chain(os.environ["TLS_CERT_FILE"], os.environ["TLS_KEY_FILE"])
+    server.socket = tls.wrap_socket(server.socket, server_side=True)
+    server.serve_forever()
+
+
+threading.Thread(target=_serve_https, daemon=True).start()
 Server(("0.0.0.0", 8000), Handler).serve_forever()

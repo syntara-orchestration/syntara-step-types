@@ -21,6 +21,7 @@ class HttpMethod(StrEnum):
 class HttpInput(BaseModel):
     url: str
     method: HttpMethod = HttpMethod.GET
+    credential_name: str | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     body: dict[str, Any] | str | None = None
     query_params: dict[str, str] = Field(default_factory=dict)

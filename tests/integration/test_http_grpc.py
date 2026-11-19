@@ -3,16 +3,78 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from queue import Queue
+from urllib.parse import urlsplit
 
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
 from tests.integration.helpers import execute_events, execute_output
+from tests.integration.service_types import TEST_BEARER_TOKEN, ImageServices
 
 pytestmark = pytest.mark.integration
 
 _STEP_REVISION_ID = "syntara.http-request.http-request"
 _RUNTIME_ABI = "syntara.container/v1alpha1"
+_BEARER_CREDENTIAL = "syntara.http.bearer"
+
+
+def _execute_with_credential_callback(
+    stub: container_pb2_grpc.ContainerServiceStub,
+    *,
+    url: str,
+    endpoint: str,
+    token: str,
+    invocation_id: str,
+) -> tuple[container_pb2.Result, list[container_pb2.CredentialRequest]]:
+    outbound: Queue[container_pb2.ExecuteClientMessage | None] = Queue()
+    credential_requests: list[container_pb2.CredentialRequest] = []
+    request = container_pb2.ExecuteRequest(
+        invocation_id=invocation_id,
+        step_revision_id=_STEP_REVISION_ID,
+        runtime_abi=_RUNTIME_ABI,
+        inputs_json=json.dumps({"url": url, "credential_name": _BEARER_CREDENTIAL}).encode(),
+        runtime_context_json=json.dumps({"httpEndpoint": endpoint}).encode(),
+        timeout_seconds=15,
+    )
+    outbound.put(container_pb2.ExecuteClientMessage(start=request))
+
+    def requests() -> Iterator[container_pb2.ExecuteClientMessage]:
+        while True:
+            message = outbound.get()
+            if message is None:
+                return
+            yield message
+
+    call = stub.Execute(requests(), timeout=20)
+    try:
+        for message in call:
+            if message.HasField("credential_request"):
+                credential_request = message.credential_request
+                credential_requests.append(credential_request)
+                outbound.put(
+                    container_pb2.ExecuteClientMessage(
+                        credential_response=container_pb2.CredentialResponse(
+                            invocation_id=credential_request.invocation_id,
+                            request_id=credential_request.request_id,
+                            document_json=json.dumps({"token": token}).encode(),
+                        )
+                    )
+                )
+                continue
+            event = message.event
+            if event.HasField("result"):
+                return event.result, credential_requests
+            if event.HasField("failure"):
+                pytest.fail(
+                    "Container execution failed before returning a result: "
+                    f"{event.failure.code}: {event.failure.message}"
+                )
+        pytest.fail("Execute stream closed without a result event")
+    finally:
+        outbound.put(None)
+        call.cancel()
 
 
 def _execute(
@@ -23,9 +85,14 @@ def _execute(
     headers: dict[str, str] | None = None,
     query_params: dict[str, str] | None = None,
     body=None,
+    follow_redirects: bool = False,
     invocation_id: str = "test-http-001",
 ) -> dict:
-    inputs: dict = {"url": url, "method": method}
+    inputs: dict = {
+        "url": url,
+        "method": method,
+        "follow_redirects": follow_redirects,
+    }
     if headers:
         inputs["headers"] = headers
     if query_params:
@@ -84,6 +151,53 @@ def test_query_params(
     assert result["body"]["args"] == {"foo": "bar"}
 
 
+def test_sdk_built_image_does_not_follow_redirects_by_default(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    result = _execute(http_stub, url=f"{test_upstream}/redirect/same-origin")
+
+    assert result["status_code"] == 302
+
+
+def test_sdk_built_image_follows_same_origin_redirect_over_grpc(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    result = _execute(
+        http_stub,
+        url=f"{test_upstream}/redirect/same-origin",
+        follow_redirects=True,
+        invocation_id="test-http-follow-redirect-001",
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["args"] == {"via": "redirect"}
+
+
+def test_sdk_built_image_blocks_private_redirect_over_grpc(
+    http_stub: container_pb2_grpc.ContainerServiceStub, test_upstream: str
+) -> None:
+    request = container_pb2.ExecuteRequest(
+        invocation_id="test-http-private-redirect-001",
+        step_revision_id=_STEP_REVISION_ID,
+        runtime_abi=_RUNTIME_ABI,
+        inputs_json=json.dumps(
+            {"url": f"{test_upstream}/redirect/private", "follow_redirects": True}
+        ).encode(),
+        runtime_context_json=b"{}",
+        timeout_seconds=15,
+    )
+    events = list(execute_events(http_stub, request, timeout=20))
+    results = [event.result for event in events if event.HasField("result")]
+    failures = [event.failure for event in events if event.HasField("failure")]
+
+    assert not failures, f"Expected an error result, got runtime failures: {failures}"
+    assert len(results) == 1
+    assert results[0].status_code != 0
+    error = json.loads(results[0].error_result_json)
+    assert error["code"] == "POLICY_DENIED"
+    assert error["category"] == "policy"
+
+
 def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="test-ssrf-001",
@@ -104,3 +218,52 @@ def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceS
         if event.HasField("failure"):
             pytest.fail(f"Expected an error result, got runtime failure: {event.failure.code}")
     pytest.fail("Execute stream closed without an error result")
+
+
+def test_bearer_credential_callback_through_sdk_built_image(
+    http_stub: container_pb2_grpc.ContainerServiceStub,
+    image_services: ImageServices,
+) -> None:
+    token = TEST_BEARER_TOKEN
+    result, credential_requests = _execute_with_credential_callback(
+        http_stub,
+        url=f"{image_services.https_upstream_url}/authorization",
+        endpoint=image_services.https_upstream_url,
+        token=token,
+        invocation_id="test-credential-callback-001",
+    )
+
+    assert result.status_code == 0
+    output = json.loads(result.output_json)
+    assert output["body"]["authorizationCount"] == 1
+    assert output["body"]["authorizationMatchesExpected"] is True
+    assert len(credential_requests) == 1
+    assert credential_requests[0].invocation_id == "test-credential-callback-001"
+    assert credential_requests[0].name == _BEARER_CREDENTIAL
+    assert credential_requests[0].request_id
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://upstream.example:8000/authorization",
+        "https://attacker.example:8443/authorization",
+    ],
+)
+def test_sdk_built_image_rejects_credentialed_untrusted_destinations_before_callback(
+    http_stub: container_pb2_grpc.ContainerServiceStub,
+    image_services: ImageServices,
+    url: str,
+) -> None:
+    result, credential_requests = _execute_with_credential_callback(
+        http_stub,
+        url=url,
+        endpoint=image_services.https_upstream_url,
+        token="dummy-response-if-requested",
+        invocation_id=f"test-credential-destination-{urlsplit(url).scheme}",
+    )
+
+    assert result.status_code != 0
+    error = json.loads(result.error_result_json)
+    assert error["code"] == "POLICY_DENIED"
+    assert credential_requests == []

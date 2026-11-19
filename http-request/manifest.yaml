@@ -8,6 +8,7 @@ spec:
   runtime:
     kind: custom-runner
     entryPoint: "syntara_node_http_request:HttpRequestStep"
+  integrationType: syntara.http
   input:
     kind: inline
     value:
@@ -19,6 +20,9 @@ spec:
         url:
           type: string
           description: Target URL (http:// or https:// only; SSRF protection blocks private/loopback/reserved IPs and validates redirect destinations).
+        credential_name:
+          type: string
+          description: Declared logical bearer credential name to read through the SDK.
         method:
           type: string
           enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
