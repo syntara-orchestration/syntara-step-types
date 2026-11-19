@@ -211,7 +211,7 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
         userinfo = ""
 
     # Build new netloc: [userinfo@]IP[:port]
-    if parsed.port:
+    if parsed.port is not None:
         new_netloc = f"{userinfo}{ip_part}:{parsed.port}"
     else:
         new_netloc = f"{userinfo}{ip_part}"
@@ -239,7 +239,7 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
     # Set Host header to original hostname, preserving non-default ports.
     # HTTP/1.1 requires host:port when the port is non-standard.
     default_port = {"http": 80, "https": 443}.get(parsed.scheme, 0)
-    if parsed.port and parsed.port != default_port:
+    if parsed.port is not None and parsed.port != default_port:
         new_request.headers["host"] = f"{url.raw_host.decode('ascii')}:{parsed.port}"
     else:
         new_request.headers["host"] = url.raw_host.decode("ascii")
@@ -254,7 +254,7 @@ def _pin_request_dns(request: httpx.Request, pinned_hosts: dict[str, str]) -> ht
 def _origin(url: httpx.URL) -> tuple[str, str, int]:
     """Return (scheme, host, effective_port) for same-origin comparisons."""
     default_port = {"http": 80, "https": 443}.get(url.scheme, 0)
-    return url.scheme, url.host, url.port or default_port
+    return url.scheme, url.host, url.port if url.port is not None else default_port
 
 
 class _PinnedTransport(httpx.AsyncBaseTransport):

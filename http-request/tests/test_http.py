@@ -148,6 +148,24 @@ def test_credentialed_http_rejects_untrusted_destination_before_read(
     assert exc_info.value.code == FailureCode.POLICY_DENIED.value
 
 
+def test_credentialed_http_rejects_zero_port_endpoint_before_read(step: HttpRequestStep) -> None:
+    context = ExecutionContext(
+        invocation_id="credential-invocation",
+        runtime_context={"httpEndpoint": "https://example.com:0"},
+    )._with_credentials(("syntara.http.bearer",))
+
+    with pytest.raises(StepFailure) as exc_info:
+        step.run(
+            HttpInput(
+                url="https://example.com/secure",
+                credential_name="syntara.http.bearer",
+            ),
+            context,
+        )
+
+    assert exc_info.value.code == FailureCode.POLICY_DENIED.value
+
+
 @respx.mock
 def test_post_with_json_body(step: HttpRequestStep, context: ExecutionContext, mock_dns) -> None:
     respx.post("https://93.184.216.34/api").mock(

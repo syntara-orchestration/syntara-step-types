@@ -52,6 +52,8 @@ def _credential_destination_matches(url: str, endpoint: object) -> bool:
             or configured.scheme.lower() != "https"
             or target_host is None
             or configured_host is None
+            or target.port == 0
+            or configured.port == 0
             or target.username is not None
             or target.password is not None
             or configured.username is not None
@@ -61,9 +63,9 @@ def _credential_destination_matches(url: str, endpoint: object) -> bool:
             or configured.fragment
         ):
             return False
-        return (target_host.casefold(), target.port or 443) == (
+        return (target_host.casefold(), target.port if target.port is not None else 443) == (
             configured_host.casefold(),
-            configured.port or 443,
+            configured.port if configured.port is not None else 443,
         )
     except ValueError:
         return False

@@ -11,9 +11,14 @@ a gRPC server on port 50051 and can serve multiple concurrent invocations.
 | Cancel | Requests cooperative cancellation of an active invocation |
 
 Inputs arrive as JSON bytes (`inputs_json`). Runtime context (e.g.
-`outputSchemaDigest`) is carried in `runtime_context_json`; it never contains an
-endpoint or credential. Large integers and null values are preserved by the JSON
-encoding.
+`outputSchemaDigest`) is carried in `runtime_context_json`; it must not contain
+credentials. A trusted host may provide selected-integration metadata needed by a
+step. For credentialed HTTP requests, the host must set `httpEndpoint` to the
+selected integration's HTTPS base origin. The HTTP step rejects credentialed
+requests before reading the credential if this value is missing, malformed, or
+does not match the request origin. Hosts that do not yet supply `httpEndpoint`
+cannot use the HTTP bearer credential path. Large integers and null values are
+preserved by the JSON encoding.
 
 Credentials are exchanged on the Execute stream; the request itself carries none
 (the pre-a4 `credential_file_paths_json` field is reserved). When a step declares
