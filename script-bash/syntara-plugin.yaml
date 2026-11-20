@@ -24,7 +24,7 @@ build:
       platform: linux/amd64
       runtimeMetadata:
         language: python
-        version: "3.12.15"
+        version: "3.12.16"
 
 publish:
   channel: 0.1.0

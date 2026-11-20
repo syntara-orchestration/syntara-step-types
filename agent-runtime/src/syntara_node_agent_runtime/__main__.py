@@ -2,26 +2,19 @@
 
 from __future__ import annotations
 
-import logging
-import signal
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from types import FrameType
 
-import grpc
 import yaml
 from syntara_plugin.runtime import (
     InstalledStepManifest,
     StepBindings,
     StepDescriptor,
-    add_container_runtime_service,
-    step_registry_from_bindings,
 )
+from syntara_plugin.runtime.server import main as serve_runtime
 
 from syntara_node_agent_runtime import AgentRuntimeStep
 
 STEP_IDENTITY = "syntara.agent-runtime.agent-runtime"
-GRPC_ADDRESS = "0.0.0.0:50051"
 
 
 def create_bindings(manifest_path: Path | None = None) -> StepBindings:
@@ -50,19 +43,7 @@ def create_bindings(manifest_path: Path | None = None) -> StepBindings:
 
 def main() -> None:
     """Start the SDK gRPC service and serve until shutdown."""
-    logging.basicConfig(level=logging.INFO)
-    registry = step_registry_from_bindings(create_bindings())
-    server = grpc.server(ThreadPoolExecutor(max_workers=10))
-    add_container_runtime_service(server, registry)
-    if server.add_insecure_port(GRPC_ADDRESS) == 0:
-        raise RuntimeError("Could not bind the SDK container listener.")
-    server.start()
-
-    def shutdown(_signal: int, _frame: FrameType | None) -> None:
-        server.stop(5)
-
-    signal.signal(signal.SIGTERM, shutdown)
-    server.wait_for_termination()
+    serve_runtime()
 
 
 if __name__ == "__main__":

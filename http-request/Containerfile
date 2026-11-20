@@ -14,6 +14,12 @@ RUN pip install --no-cache-dir "${CONTRACTS_SOURCE}" .
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
 COPY --from=builder /usr/local/bin /usr/local/bin
+COPY http-request/runtime.json /etc/syntara/runtime.json
+ENV SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
+    SYNTARA_RUNTIME_GRPC_ADDRESS=0.0.0.0:50051 \
+    SYNTARA_RUNTIME_GRPC_TLS_CERT=/run/secrets/server.crt \
+    SYNTARA_RUNTIME_GRPC_TLS_KEY=/run/secrets/server.key \
+    SYNTARA_RUNTIME_GRPC_TLS_CLIENT_CA=/run/secrets/client-ca.crt
 USER 65532:65532
 EXPOSE 50051
-ENTRYPOINT ["python", "-m", "syntara_node_http_request"]
+ENTRYPOINT ["python", "-m", "syntara_plugin.runtime.server"]

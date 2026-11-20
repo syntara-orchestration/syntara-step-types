@@ -40,11 +40,17 @@ WORKDIR /app
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
 COPY script-bash/manifest.yaml /app/manifest.yaml
+COPY script-bash/runtime.json /etc/syntara/runtime.json
 COPY script-runtime/src /app/src
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONPATH="/app/src"
+    PYTHONPATH="/app/src" \
+    SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
+    SYNTARA_RUNTIME_GRPC_ADDRESS=0.0.0.0:50051 \
+    SYNTARA_RUNTIME_GRPC_TLS_CERT=/run/secrets/server.crt \
+    SYNTARA_RUNTIME_GRPC_TLS_KEY=/run/secrets/server.key \
+    SYNTARA_RUNTIME_GRPC_TLS_CLIENT_CA=/run/secrets/client-ca.crt
 
 EXPOSE 50051
 USER 65532:65532
-ENTRYPOINT ["python3.12", "-m", "syntara_node_script.bash"]
+ENTRYPOINT ["python3.12", "-m", "syntara_plugin.runtime.server"]
