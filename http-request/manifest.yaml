@@ -12,6 +12,7 @@ spec:
   input:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       required:
         - url
@@ -50,6 +51,7 @@ spec:
   output:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       required: [status_code, body, headers, elapsed]
       additionalProperties: false
@@ -70,5 +72,6 @@ spec:
   error:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       additionalProperties: true

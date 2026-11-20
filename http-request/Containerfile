@@ -2,13 +2,14 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-# renovate: datasource=pypi depName=syntara-plugin-contracts
-ARG CONTRACTS_VERSION=0.1.0a6
+ARG CONTRACTS_SOURCE="syntara-plugin-contracts @ git+https://github.com/syntara-orchestration/syntara-plugin-sdk.git@ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef#subdirectory=sdks/python/packages/contracts"
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 COPY http-request/pyproject.toml /app/pyproject.toml
 COPY http-request/manifest.yaml /app/manifest.yaml
 COPY http-request/src /app/src
-# Resolve the published runtime contracts and all step dependencies in a clean build context.
-RUN pip install --no-cache-dir "syntara-plugin-contracts==${CONTRACTS_VERSION}" .
+# Install the unpublished host-operation ABI from the SDK feature commit and the step package.
+RUN pip install --no-cache-dir "${CONTRACTS_SOURCE}" .
 
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12

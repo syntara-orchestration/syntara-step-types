@@ -13,5 +13,11 @@ spec:
         - name: default
           displayName: Default runtime
           description: Container image built from this plugin's Containerfile.
+          runtime:
+            components:
+              - name: python
+                executable: /usr/bin/python3.12
+              - name: bash
+                executable: /usr/bin/bash
           image:
             buildTarget: script-bash

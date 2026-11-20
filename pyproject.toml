@@ -6,6 +6,10 @@ dependencies = [
     "syntara-plugin-contracts>=0.1.0a7",
 ]
 
+[tool.uv.sources]
+syntara-plugin-contracts = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git", rev = "ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef", subdirectory = "sdks/python/packages/contracts" }
+syntara-plugin-sdk = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git", rev = "ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef", subdirectory = "sdks/python/packages/sdk" }
+
 [dependency-groups]
 dev = [
     "pytest>=8",

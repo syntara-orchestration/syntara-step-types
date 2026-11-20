@@ -18,6 +18,9 @@ build:
       containerfile: Containerfile
       tag: 0.1.0
       platform: linux/amd64
+      runtimeMetadata:
+        language: python
+        version: "3.12.16"
 publish:
   channel: 0.1.0
   updateCatalog: true
