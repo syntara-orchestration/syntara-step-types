@@ -1,0 +1,6 @@
+{
+  "abi": "syntara.container/v1alpha1",
+  "adapter": {
+    "bindingsFactory": "syntara_node_http_request.__main__:create_bindings"
+  }
+}

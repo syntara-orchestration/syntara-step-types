@@ -1,9 +1,10 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 
 [manifest]
 members = [
+    "syntara-node-agent-runtime",
     "syntara-node-http-request",
     "syntara-node-script-runtime",
     "syntara-step-types",
@@ -804,6 +805,17 @@ wheels = [
 ]
 
 [[package]]
+name = "syntara-node-agent-runtime"
+version = "0.1.0"
+source = { editable = "agent-runtime" }
+dependencies = [
+    { name = "syntara-plugin-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" }]
+
+[[package]]
 name = "syntara-node-http-request"
 version = "0.1.0"
 source = { editable = "http-request" }
@@ -817,7 +829,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" },
 ]
 
 [[package]]
@@ -832,13 +844,13 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" },
 ]
 
 [[package]]
 name = "syntara-plugin-contracts"
-version = "0.1.0a5"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.0a7"
+source = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef#ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" }
 dependencies = [
     { name = "grpcio" },
     { name = "jsonschema" },
@@ -847,22 +859,14 @@ dependencies = [
     { name = "pyyaml" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/05/8f861f5dbe33703e1953307b7e924f569c8fe852d1cdde40763f032c303d/syntara_plugin_contracts-0.1.0a5.tar.gz", hash = "sha256:f05ffffdf4672884bc6876c5d669d33b57a8302ff0a3e539d1469215cfcb49fc", size = 114274, upload-time = "2026-11-16T17:20:35.824Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/c9/ee4806b1cfdf85ddee8f126d7aa6b3eaed9d7ef9171c1b238a91a00ffbc1/syntara_plugin_contracts-0.1.0a5-py3-none-any.whl", hash = "sha256:f0a9e7c9a732062c6e63ac43eb542f4c47e138642ec69ef59ca8d56c71afae2f", size = 161264, upload-time = "2026-11-16T17:20:34.405Z" },
-]
 
 [[package]]
 name = "syntara-plugin-sdk"
-version = "0.1.0a5"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.0a7"
+source = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fsdk&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef#ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/4d/fe87a5b51264ed003ef4442ed92f1dd512049dbc31c85972cc3ae60eb002/syntara_plugin_sdk-0.1.0a5.tar.gz", hash = "sha256:e92c0de6a7200e277cd8dc596187d8f485701c9e81c6c68755444fbb890dc010", size = 150684, upload-time = "2026-11-16T17:20:57.288Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/1c/ab7ef910b011ec4f33eb447c62749e050b1b5e87e110d7b9cf6fab174588/syntara_plugin_sdk-0.1.0a5-py3-none-any.whl", hash = "sha256:eb261362e2b487b46a6ff67435747eac8f0fc38d1fb758232c39b3b91b0c4043", size = 172064, upload-time = "2026-11-16T17:20:55.55Z" },
 ]
 
 [[package]]
@@ -888,7 +892,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" }]
+requires-dist = [{ name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -900,7 +904,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = "==0.14.3" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-sdk", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fsdk&rev=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

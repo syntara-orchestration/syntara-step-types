@@ -13,5 +13,9 @@ spec:
         - name: default
           displayName: Default runtime
           description: Container image built from this plugin's Containerfile.
+          runtime:
+            components:
+              - name: python
+                executable: /usr/local/bin/python
           image:
             buildTarget: http-request
