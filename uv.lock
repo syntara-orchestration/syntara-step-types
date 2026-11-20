@@ -1,9 +1,10 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 
 [manifest]
 members = [
+    "syntara-node-agent-runtime",
     "syntara-node-http-request",
     "syntara-node-script-runtime",
     "syntara-step-types",
@@ -802,6 +803,17 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/03/15/51960ae340823c9859fb60c63301d977308735403e2134e17d1d2858c7fb/ruff-0.14.3-py3-none-win_amd64.whl", hash = "sha256:d7b7006ac0756306db212fd37116cce2bd307e1e109375e1c6c106002df0ae5f", size = 13594005, upload-time = "2025-10-31T00:26:22.533Z" },
     { url = "https://files.pythonhosted.org/packages/b7/73/4de6579bac8e979fca0a77e54dec1f1e011a0d268165eb8a9bc0982a6564/ruff-0.14.3-py3-none-win_arm64.whl", hash = "sha256:26eb477ede6d399d898791d01961e16b86f02bc2486d0d1a7a9bb2379d055dc1", size = 12590017, upload-time = "2025-10-31T00:26:24.52Z" },
 ]
+
+[[package]]
+name = "syntara-node-agent-runtime"
+version = "0.1.0"
+source = { editable = "agent-runtime" }
+dependencies = [
+    { name = "syntara-plugin-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" }]
 
 [[package]]
 name = "syntara-node-http-request"

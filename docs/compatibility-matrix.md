@@ -176,16 +176,31 @@ output_freeze:
 
 ---
 
-## Agentic (stub)
+## Agentic (container runtime milestone)
 
 | Field | Value |
 |---|---|
 | AO node type | `agentic` |
-| AO activity today | `execute_agentic_activity` (Agent Orchestrator client + async signals) |
-| Plugin on step-types `devel` | **None** |
+| AO activity today | Existing `InvocationExecutor`; workflow-backed invocations use `agent-runtime` when the default-off feature flag is enabled |
+| Plugin on this step-types branch | `agent-runtime` Action, `syntara.agent-runtime.agent-runtime` |
 | Legacy remote | `feat/agent-step` (pre-Plugin/Action; not checklist baseline) |
-| EP status | **Not EP** — different async model |
-| Special case | Invocation ack ≠ final AO `output`; pathway must not assume script-like `WorkExecute` completion alone |
+| EP status | One workload per invocation; model and MCP host operations are relayed through EP to AO |
+| Rollout | Requires the EP client release with `agent.operation`, a published Action image, and `APP_AGENT_RUNTIME_ENABLED=true` |
+| Completion | AO persists the invocation and sends its existing workflow callback; generic EP completion acknowledges the work item only |
+
+**Container Action output**
+
+| Field | Notes |
+|---|---|
+| `content` | Required final answer; string or object for structured output |
+| `last_turn_index`, `total_duration_ms` | Model-loop accounting |
+| `response_metadata`, `structured_output_metadata` | Provider and structured-output metadata |
+| `tools_used`, `tool_trace`, `llm_token_usage_log` | AO persists tool activity and provider usage through the invocation lifecycle |
+
+The AO result retains the existing answer content, tool summary, trace, context
+grounding data, and token totals. AO prepares the prompt and tool descriptions;
+the workload receives no DB, provider, or integration credentials. It does not
+connect directly to databases, model providers, or MCP servers.
 
 **Output freeze (AO `AgenticOutput` / resultSchema)**
 
@@ -197,7 +212,7 @@ output_freeze:
 | `structured_output_metadata` | optional |
 | `integration_ids` | optional |
 
-**Input freeze (AO today):** `prompt` (required), `agent`, `model` / `llm_model_id`, `credential_id`, tool selection fields, `response_schema`, `file_ids`, `integration_connections`.
+**Input freeze (AO today):** `prompt` (required), `agent`, `model` / `llm_model_id`, `credential_id`, tool selection fields, `response_schema`, `file_ids`, `integration_connections`. AO resolves these and sends prepared messages, selected MCP tool schemas, the response schema, and a loop bound as workload inputs. Uploaded files are converted/enriched by AO before dispatch; the container receives prompt context, not file paths or DB access.
 
 ---
 
@@ -242,7 +257,7 @@ output_freeze:
 1. **Breaking change:** renaming/removing a frozen output field requires an approved alias period; saved `${node.field}` strings are not schema-versioned at save time.  
 2. **Thin projection:** expression namespaces expose business fields and the interim AO `status` / `error` envelope. Do not expose `statusCode`, `statusMessage`, or `errorResult` from `StandardOutputWrapper` as template fields.  
 3. **Health and Execute (target state):** the workload must advertise the exact compiled revision AO submits. The static step identity is not that revision, and `*` is not an Execute match. `script.v1` is not a compiled revision. Until the images serve the resolved-revision path, Health and Execute accept the static identity (see [`runtime.md`](runtime.md)).  
-4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin: `0.1.0a6`.**
+4. **Contracts pin:** EP worker and step images rebuilt from this branch use reviewed `syntara-plugin-contracts` version `0.1.0a7`; already-published image digests retain their build-time SDK until rebuilt.
 5. **No silent fallback:** after an ambiguous EP submit, do not fall back to in-process execution (current AO isolation rule).  
 6. **EP `output_config`:** key selection only until AO evaluates template expressions; AO remains source of truth for `${…}` expansion.
 
@@ -255,5 +270,5 @@ output_freeze:
 | AO schemas | `syntara/backend/src/syntara/schemas/workflows/v2/executors/{script,http_request,agentic,aap_*}.schema.json` (AO `devel`) |
 | AO output models | `…/workflow_definition.py` → `ScriptOutput`, `HttpRequestOutput`, `AgenticOutput`, `AAP*Output` (AO `devel`) |
 | AO dispatch | `…/workflows/workflow_engine/activities/ep/ep_dispatch_activity.py`, `node_container_images`, `script_nodes_enabled` (AO `devel`) |
-| Step plugins | `script-python/`, `script-bash/`, `http-request/` manifests + `Makefile` / `.tekton` (this repo, `devel`) |
+| Step plugins | `script-python/`, `script-bash/`, `http-request/`, and `agent-runtime/` manifests + `Makefile` (this feature branch) |
 | EP protocol | `syntara-execution-plane` `docs/workload-protocol.md`, `docs/integration.md` (EP `devel`) |

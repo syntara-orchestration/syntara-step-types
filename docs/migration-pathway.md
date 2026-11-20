@@ -89,7 +89,8 @@ Requirements:
    identity, see [`runtime.md`](runtime.md)). The static identity
    (`namespace.plugin.step`) is not that revision.
 7. Pin `syntara-plugin-contracts` to the same reviewed version as EP
-   (joint pin: **`0.1.0a6`**)
+   (the Agent Runtime milestone currently uses **`0.1.0a7`**; already-published
+   image digests retain their build-time SDK until rebuilt)
 
 Copy an existing plugin (`script-python` or `http-request`) rather than
 scaffolding from scratch unless the SDK `syntara-plugin init` path matches
