@@ -268,8 +268,10 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                     command.extend(["--add-host", f"upstream.example:{_UPSTREAM_IP}"])
                 command.append(images[plugin])
                 _command(command)
+                user_id = _command([_PODMAN, "exec", name, "id", "-u"]).strip()
+                if user_id == "0":
+                    raise RuntimeError(f"{plugin} workload must run as a non-root user")
                 if plugin == "http-request":
-                    user_id = _command([_PODMAN, "exec", name, "id", "-u"]).strip()
                     if user_id != "65532":
                         raise RuntimeError(
                             f"HTTP workload must run as UID 65532, got UID {user_id!r}"
