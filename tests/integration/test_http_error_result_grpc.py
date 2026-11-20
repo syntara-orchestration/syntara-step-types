@@ -7,11 +7,9 @@ import json
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.helpers import execute_events
+from tests.integration.helpers import execute_events, resolved_step_revision_id
 
 pytestmark = pytest.mark.integration
-
-_STEP_REVISION_ID = "syntara.http-request.http-request"
 
 
 @pytest.mark.parametrize(
@@ -31,7 +29,7 @@ def test_http_errors_are_serialized_in_result_event(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id=f"http-error-{path}",
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(http_stub),
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps(
             {"url": f"{test_upstream}/{path}", "timeout_seconds": http_timeout}

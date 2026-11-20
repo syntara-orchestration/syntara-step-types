@@ -28,6 +28,15 @@ def execute_events(
         yield message.event
 
 
+def resolved_step_revision_id(stub: container_pb2_grpc.ContainerServiceStub) -> str:
+    """Return the immutable revision advertised by the resolved runtime binding."""
+    response = stub.Health(container_pb2.HealthRequest(), timeout=2)
+    revisions = list(response.step_revision_ids)
+    if len(revisions) != 1:
+        pytest.fail(f"Expected one resolved step revision, got {revisions!r}")
+    return revisions[0]
+
+
 def execute_output(
     stub: container_pb2_grpc.ContainerServiceStub,
     request: container_pb2.ExecuteRequest,
