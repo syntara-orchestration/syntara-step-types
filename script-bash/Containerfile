@@ -10,7 +10,7 @@ COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
 # Optional contracts override; empty by default, which keeps the uv.lock pin.
 ARG CONTRACTS_VERSION=
 COPY script-bash/manifest.yaml /app/manifest.yaml
-RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
+RUN uv sync --frozen --no-dev --no-install-workspace \
     --package syntara-node-script-runtime \
     && if [ -n "$CONTRACTS_VERSION" ]; then \
         uv pip install --python /app/.venv/bin/python \
@@ -30,9 +30,15 @@ WORKDIR /app
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/manifest.yaml /app/manifest.yaml
+COPY script-bash/runtime.json /etc/syntara/runtime.json
 COPY script-runtime/src /app/src
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
+ENV SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
+    SYNTARA_RUNTIME_GRPC_ADDRESS=0.0.0.0:50051 \
+    SYNTARA_RUNTIME_GRPC_TLS_CERT=/run/secrets/server.crt \
+    SYNTARA_RUNTIME_GRPC_TLS_KEY=/run/secrets/server.key \
+    SYNTARA_RUNTIME_GRPC_TLS_CLIENT_CA=/run/secrets/client-ca.crt
 EXPOSE 50051
 USER 65532:65532
-ENTRYPOINT ["python3.12", "-m", "syntara_node_script.bash"]
+ENTRYPOINT ["python3.12", "-m", "syntara_plugin.runtime.server"]
