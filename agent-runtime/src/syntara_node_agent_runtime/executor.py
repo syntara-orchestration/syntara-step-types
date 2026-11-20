@@ -254,14 +254,30 @@ def _finalize_response(
 class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
     """Run model turns and authorized MCP calls within one workload invocation."""
 
+    @staticmethod
+    def _response_mode(
+        inputs: AgentRuntimeInput, tools: list[dict[str, Any]], turn_index: int
+    ) -> str:
+        if inputs.response_schema is not None and not tools and turn_index == 1:
+            return "structured_direct"
+        return "standard"
+
+    @staticmethod
+    def _append_assistant_message(
+        response: dict[str, Any], mode: str, messages: list[dict[str, Any]]
+    ) -> None:
+        assistant_message = response.get("assistant_message")
+        if not isinstance(assistant_message, dict):
+            return
+        if mode != "standard" and response.get("parsed_output") is None:
+            return
+        messages.append(assistant_message)
+
     def run(self, inputs: AgentRuntimeInput, context: ExecutionContext) -> AgentRuntimeOutput:
         """Advance the conversation until the model returns a final answer."""
         messages = [dict(message) for message in inputs.messages]
         tools = [dict(tool) for tool in inputs.tools]
         turn_index = 0
-        response: dict[str, Any] = {}
-        final_response_metadata: dict[str, Any] = {}
-        metadata: Any = None
         tool_trace: list[dict[str, Any]] = []
         usage_log: list[dict[str, Any]] = []
         tools_used: list[str] = []
@@ -271,9 +287,7 @@ class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
             if context.cancelled:
                 raise RuntimeError("Agent invocation was cancelled.")
             turn_index += 1
-            mode = "standard"
-            if inputs.response_schema is not None and not tools and turn_index == 1:
-                mode = "structured_direct"
+            mode = self._response_mode(inputs, tools, turn_index)
             model_started_at = time.perf_counter()
             response = context.toolbox.model_turn(
                 {
@@ -284,14 +298,8 @@ class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
                     "response_schema": inputs.response_schema,
                 }
             )
-            raw_metadata = response.get("response_metadata")
-            final_response_metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
             _record_usage(response, usage_log)
-            assistant_message = response.get("assistant_message")
-            if isinstance(assistant_message, dict) and (
-                mode == "standard" or response.get("parsed_output") is not None
-            ):
-                messages.append(assistant_message)
+            self._append_assistant_message(response, mode, messages)
 
             has_tool_calls = _execute_tool_calls(
                 context,

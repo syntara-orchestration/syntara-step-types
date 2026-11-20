@@ -2,20 +2,37 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-ARG CONTRACTS_SOURCE="syntara-plugin-contracts @ git+https://github.com/syntara-orchestration/syntara-plugin-sdk.git@ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef#subdirectory=sdks/python/packages/contracts"
+ARG CONTRACTS_REV=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef
+ARG CONTRACTS_VERSION=0.1.0a7
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
-COPY http-request/pyproject.toml /app/pyproject.toml
-COPY http-request/manifest.yaml /app/manifest.yaml
-COPY http-request/src /app/src
-# Install the unpublished host-operation ABI from the SDK feature commit and the step package.
-RUN pip install --no-cache-dir "${CONTRACTS_SOURCE}" .
+COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /bin/
+COPY pyproject.toml uv.lock /app/
+COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
+COPY http-request/pyproject.toml /app/http-request/pyproject.toml
+COPY agent-runtime/pyproject.toml /app/agent-runtime/pyproject.toml
+RUN uv export --frozen --no-dev --package syntara-node-http-request \
+    --no-emit-workspace --no-emit-package syntara-plugin-contracts \
+    --output-file /app/requirements.txt \
+    && uv venv --python python3.12 /app/.venv \
+    && uv pip install --python /app/.venv/bin/python --only-binary :all: \
+      --require-hashes -r /app/requirements.txt
+RUN git clone https://github.com/syntara-orchestration/syntara-plugin-sdk.git /tmp/sdk \
+    && git -C /tmp/sdk checkout --detach "$CONTRACTS_REV" \
+    && uv build --wheel --out-dir /app/wheels /tmp/sdk/sdks/python/packages/contracts \
+    && python3.12 -c 'import hashlib, os, pathlib; wheel = next(pathlib.Path("/app/wheels").glob("syntara_plugin_contracts-*.whl")); digest = hashlib.sha256(wheel.read_bytes()).hexdigest(); pathlib.Path("/app/contracts-requirements.txt").write_text("syntara-plugin-contracts=={} --hash=sha256:{}\n".format(os.environ["CONTRACTS_VERSION"], digest))' \
+    && uv pip install --python /app/.venv/bin/python --no-deps --only-binary :all: \
+      --no-index --find-links /app/wheels --require-hashes -r /app/contracts-requirements.txt
 
 FROM base
-COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
-COPY --from=builder /usr/local/bin /usr/local/bin
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
+COPY http-request/manifest.yaml /app/manifest.yaml
+COPY http-request/src /app/src
 COPY http-request/runtime.json /etc/syntara/runtime.json
-ENV SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src" \
+    SYNTARA_RUNTIME_CONFIG=/etc/syntara/runtime.json \
     SYNTARA_RUNTIME_GRPC_ADDRESS=0.0.0.0:50051 \
     SYNTARA_RUNTIME_GRPC_TLS_CERT=/run/secrets/server.crt \
     SYNTARA_RUNTIME_GRPC_TLS_KEY=/run/secrets/server.key \
