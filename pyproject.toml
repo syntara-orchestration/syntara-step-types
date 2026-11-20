@@ -1,4 +1,3 @@
-# Rebuild Konflux devel images to unblock operator PR #1773.
 [project]
 name = "syntara-step-types"
 version = "0.1.0"
