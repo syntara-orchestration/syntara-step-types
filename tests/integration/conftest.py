@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+import tarfile
 import tempfile
 import time
 import uuid
@@ -13,6 +15,7 @@ from pathlib import Path
 
 import grpc
 import pytest
+from syntara_plugin.contracts import registration_manifest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
 from tests.integration.service_types import TEST_BEARER_TOKEN, ImageServices
@@ -156,10 +159,151 @@ def _create_test_tls_certificate(directory: Path) -> tuple[Path, Path]:
     return certificate, private_key
 
 
+def _create_runtime_tls_material(directory: Path) -> tuple[Path, Path, Path, Path]:
+    """Create short-lived mTLS material for the SDK runtime gRPC listener."""
+    directory.mkdir(parents=True)
+    ca_key = directory / "ca.key"
+    ca_certificate = directory / "client-ca.crt"
+    extensions = directory / "runtime.ext"
+    extensions.write_text(
+        "subjectAltName=DNS:localhost,IP:127.0.0.1\n"
+        "extendedKeyUsage=serverAuth,clientAuth\n"
+        "keyUsage=digitalSignature,keyEncipherment\n",
+        encoding="utf-8",
+    )
+    _command(["openssl", "genrsa", "-out", str(ca_key), "2048"])
+    _command(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-new",
+            "-key",
+            str(ca_key),
+            "-out",
+            str(ca_certificate),
+            "-subj",
+            "/CN=syntara-runtime-test-ca",
+            "-days",
+            "2",
+            "-addext",
+            "basicConstraints=critical,CA:TRUE",
+            "-addext",
+            "keyUsage=critical,keyCertSign,cRLSign",
+        ]
+    )
+
+    credentials: dict[str, Path] = {}
+    for name in ("server", "client"):
+        key = directory / f"{name}.key"
+        request = directory / f"{name}.csr"
+        certificate = directory / f"{name}.crt"
+        _command(["openssl", "genrsa", "-out", str(key), "2048"])
+        _command(
+            [
+                "openssl",
+                "req",
+                "-new",
+                "-key",
+                str(key),
+                "-out",
+                str(request),
+                "-subj",
+                f"/CN={name}",
+            ]
+        )
+        _command(
+            [
+                "openssl",
+                "x509",
+                "-req",
+                "-in",
+                str(request),
+                "-CA",
+                str(ca_certificate),
+                "-CAkey",
+                str(ca_key),
+                "-CAcreateserial",
+                "-out",
+                str(certificate),
+                "-days",
+                "2",
+                "-extfile",
+                str(extensions),
+            ]
+        )
+        # The workload runs as UID 65532 and the files are only mounted into
+        # throwaway test containers for the duration of this test session.
+        key.chmod(0o644)
+        credentials[f"{name}_certificate"] = certificate
+        credentials[f"{name}_key"] = key
+
+    for path in (ca_key, extensions, directory / "client-ca.srl"):
+        path.unlink(missing_ok=True)
+    directory.chmod(0o755)
+    return (
+        ca_certificate,
+        credentials["server_certificate"],
+        credentials["client_certificate"],
+        credentials["client_key"],
+    )
+
+
+def _write_runtime_documents(plugin: str, inventory: dict, directory: Path) -> Path:
+    """Derive the SDK server's resolved and registration files from its artifact."""
+    entry = inventory["plugins"][plugin]
+    archive_path = ARTIFACTS.parent / entry["pluginArchive"]
+    with tarfile.open(archive_path, mode="r:*") as archive:
+        index = json.load(archive.extractfile("index.json"))
+        manifest_digest = index["manifests"][0]["digest"].split(":", 1)[1]
+        manifest_path = f"blobs/sha256/{manifest_digest}"
+        artifact_manifest = json.load(archive.extractfile(manifest_path))
+        descriptor_layer = next(
+            layer
+            for layer in artifact_manifest["layers"]
+            if layer["annotations"].get("org.opencontainers.image.title") == "plugin.manifest.yaml"
+        )
+        descriptor_digest = descriptor_layer["digest"].split(":", 1)[1]
+        descriptor = json.load(archive.extractfile(f"blobs/sha256/{descriptor_digest}"))
+
+    workload_ids = {
+        target["runtime"]["workload"]
+        for target in descriptor["spec"]["targets"]
+        if target.get("runtime", {}).get("kind") == "custom-runner"
+    }
+    if len(workload_ids) != 1:
+        raise RuntimeError(f"Expected one custom-runner workload in {plugin}'s plugin artifact")
+    registration = registration_manifest(descriptor, next(iter(workload_ids)))
+    resolved = {
+        "bindings": [
+            {"stepRevisionId": revision, "runtimeKind": "custom-runner", **binding}
+            for revision, binding in registration["steps"].items()
+        ]
+    }
+    directory.mkdir(parents=True)
+    (directory / "registration.json").write_text(
+        json.dumps(registration, sort_keys=True), encoding="utf-8"
+    )
+    (directory / "resolved.json").write_text(json.dumps(resolved, sort_keys=True), encoding="utf-8")
+    directory.chmod(0o755)
+    return directory
+
+
 def _wait_ready(
-    name: str, port: int, timeout: float = 40
+    name: str,
+    port: int,
+    *,
+    root_certificate: Path,
+    client_certificate: Path,
+    client_key: Path,
+    timeout: float = 40,
 ) -> tuple[grpc.Channel, container_pb2_grpc.ContainerServiceStub]:
-    channel = grpc.insecure_channel(f"127.0.0.1:{port}")
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=root_certificate.read_bytes(),
+        private_key=client_key.read_bytes(),
+        certificate_chain=client_certificate.read_bytes(),
+    )
+    channel = grpc.secure_channel(f"127.0.0.1:{port}", credentials)
     stub = container_pb2_grpc.ContainerServiceStub(channel)
     deadline = time.monotonic() + timeout
     last_error = "gRPC Health has not responded"
@@ -202,6 +346,13 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
         }
         try:
             certificate, private_key = _create_test_tls_certificate(Path(tls_directory))
+            runtime_cert_dir = Path(tls_directory) / "runtime-certs"
+            (
+                runtime_ca,
+                runtime_server_certificate,
+                runtime_client_certificate,
+                runtime_client_key,
+            ) = _create_runtime_tls_material(runtime_cert_dir)
             _command([_PODMAN, "network", "create", network])
             created_networks.append(network)
             _command(
@@ -253,6 +404,9 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
             for plugin in PLUGINS:
                 name = f"syntara-test-{plugin}-{run_id}"
                 names.append(name)
+                runtime_directory = _write_runtime_documents(
+                    plugin, inventory, Path(tls_directory) / f"runtime-{plugin}"
+                )
                 command = [
                     _PODMAN,
                     "run",
@@ -263,6 +417,20 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                     network,
                     "--publish",
                     "127.0.0.1::50051",
+                    "--volume",
+                    f"{runtime_directory}:/tmp/syntara-runtime:ro",
+                    "--volume",
+                    f"{runtime_cert_dir}:/tmp/syntara-certs:ro",
+                    "--env",
+                    "SYNTARA_RESOLVED_EXECUTION=/tmp/syntara-runtime/resolved.json",
+                    "--env",
+                    "SYNTARA_REGISTRATION_MANIFEST=/tmp/syntara-runtime/registration.json",
+                    "--env",
+                    "SYNTARA_RUNTIME_GRPC_TLS_CERT=/tmp/syntara-certs/server.crt",
+                    "--env",
+                    "SYNTARA_RUNTIME_GRPC_TLS_KEY=/tmp/syntara-certs/server.key",
+                    "--env",
+                    "SYNTARA_RUNTIME_GRPC_TLS_CLIENT_CA=/tmp/syntara-certs/client-ca.crt",
                 ]
                 if plugin == "http-request":
                     command.extend(["--add-host", f"upstream.example:{_UPSTREAM_IP}"])
@@ -295,7 +463,13 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                         ]
                     )
                 port = _published_port(name, 50051)
-                channel, stubs[plugin] = _wait_ready(name, port)
+                channel, stubs[plugin] = _wait_ready(
+                    name,
+                    port,
+                    root_certificate=runtime_ca,
+                    client_certificate=runtime_client_certificate,
+                    client_key=runtime_client_key,
+                )
                 channels.append(channel)
 
             yield ImageServices(
