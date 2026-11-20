@@ -1,9 +1,10 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 
 [manifest]
 members = [
+    "syntara-node-agent-runtime",
     "syntara-node-http-request",
     "syntara-node-script-runtime",
     "syntara-step-types",
@@ -804,6 +805,17 @@ wheels = [
 ]
 
 [[package]]
+name = "syntara-node-agent-runtime"
+version = "0.1.0"
+source = { editable = "agent-runtime" }
+dependencies = [
+    { name = "syntara-plugin-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" }]
+
+[[package]]
 name = "syntara-node-http-request"
 version = "0.1.0"
 source = { editable = "http-request" }
@@ -837,7 +849,7 @@ requires-dist = [
 
 [[package]]
 name = "syntara-plugin-contracts"
-version = "0.1.0a5"
+version = "0.1.0a6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
@@ -847,22 +859,22 @@ dependencies = [
     { name = "pyyaml" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/05/8f861f5dbe33703e1953307b7e924f569c8fe852d1cdde40763f032c303d/syntara_plugin_contracts-0.1.0a5.tar.gz", hash = "sha256:f05ffffdf4672884bc6876c5d669d33b57a8302ff0a3e539d1469215cfcb49fc", size = 114274, upload-time = "2026-11-16T17:20:35.824Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/3b/e1b9880d6c46ae2374686d4fe82ed78beb135cd04ab721ced0e0ac944747/syntara_plugin_contracts-0.1.0a6.tar.gz", hash = "sha256:0f3b84e22cc8ec03fa1b59b353fcef268f93df8f88af119593732e0ccced8c9f", size = 114825, upload-time = "2026-11-17T22:04:07.031Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/c9/ee4806b1cfdf85ddee8f126d7aa6b3eaed9d7ef9171c1b238a91a00ffbc1/syntara_plugin_contracts-0.1.0a5-py3-none-any.whl", hash = "sha256:f0a9e7c9a732062c6e63ac43eb542f4c47e138642ec69ef59ca8d56c71afae2f", size = 161264, upload-time = "2026-11-16T17:20:34.405Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/34/cde0e62ae0ce063891f661c18ce2b605e8a528648f43d07a09b934eb65d7/syntara_plugin_contracts-0.1.0a6-py3-none-any.whl", hash = "sha256:95d49c6d328227948e58189b8420da2bf4ae75010bf024cd7ebaf0969813805b", size = 161827, upload-time = "2026-11-17T22:04:05.749Z" },
 ]
 
 [[package]]
 name = "syntara-plugin-sdk"
-version = "0.1.0a5"
+version = "0.1.0a6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/4d/fe87a5b51264ed003ef4442ed92f1dd512049dbc31c85972cc3ae60eb002/syntara_plugin_sdk-0.1.0a5.tar.gz", hash = "sha256:e92c0de6a7200e277cd8dc596187d8f485701c9e81c6c68755444fbb890dc010", size = 150684, upload-time = "2026-11-16T17:20:57.288Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/7a/09d7d26b63bd76eebe03232a3a6f65003d6b5311ec28946e0570e628cafb/syntara_plugin_sdk-0.1.0a6.tar.gz", hash = "sha256:4b7bfc28636d400a72d4c4481b5464a6b49b9138d0e6557fcf47471f24c2a1b0", size = 150685, upload-time = "2026-11-17T22:04:30.436Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/1c/ab7ef910b011ec4f33eb447c62749e050b1b5e87e110d7b9cf6fab174588/syntara_plugin_sdk-0.1.0a5-py3-none-any.whl", hash = "sha256:eb261362e2b487b46a6ff67435747eac8f0fc38d1fb758232c39b3b91b0c4043", size = 172064, upload-time = "2026-11-16T17:20:55.55Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/b7/0a00c8c4d588cfaa1a427250e2196d3b977e43e720f79a16bd8c7b8445a7/syntara_plugin_sdk-0.1.0a6-py3-none-any.whl", hash = "sha256:6ef4eef69912698b76467e9a291ec85b46baadccbbbfe9fd8add7276c91c20d0", size = 172065, upload-time = "2026-11-17T22:04:29.038Z" },
 ]
 
 [[package]]
@@ -888,7 +900,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" }]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" }]
 
 [package.metadata.requires-dev]
 dev = [

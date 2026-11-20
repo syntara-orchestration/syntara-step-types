@@ -1,0 +1,17 @@
+apiVersion: syntara.io/v1alpha1
+kind: RuntimeBinding
+metadata:
+  namespace: syntara
+  name: agent-runtime-binding
+spec:
+  plugin:
+    source: plugin.yaml
+  workloads:
+    agent-runtime:
+      default: default
+      options:
+        - name: default
+          displayName: Default runtime
+          description: Container image built from this plugin's Containerfile.
+          image:
+            buildTarget: agent-runtime

@@ -1,0 +1,27 @@
+apiVersion: syntara.io/v1alpha1
+kind: PluginBuildSettings
+manifest: plugin.yaml
+registry:
+  origin: http://localhost:5000
+  artifactRepository: syntara/plugins/agent-runtime
+  workloadRepository: syntara/workloads/agent-runtime
+  catalogRepository: syntara/catalog-index
+  username: publisher
+  allowInsecureLoopbackHttp: true
+build:
+  artifactOutput: dist/agent-runtime.oci.tar
+  runtimeBindings: runtime-bindings.yaml
+  workloads:
+    agent-runtime:
+      engine: podman
+      context: ..
+      containerfile: Containerfile
+      tag: 0.1.0
+      platform: linux/amd64
+publish:
+  channel: 0.1.0
+  updateCatalog: true
+catalog:
+  sourceId: syntara-catalog
+  channel: stable
+  expiresInHours: 168

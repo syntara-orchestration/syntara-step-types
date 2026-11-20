@@ -3,7 +3,7 @@ name = "syntara-step-types"
 version = "0.1.0"
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "syntara-plugin-contracts>=0.1.0a5",
+    "syntara-plugin-contracts>=0.1.0a7",
 ]
 
 [dependency-groups]
@@ -21,7 +21,7 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["script-runtime", "http-request"]
+members = ["script-runtime", "http-request", "agent-runtime"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -48,7 +48,7 @@ module = ["syntara_plugin.*", "grpc.*", "respx.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["syntara_node_http_request", "syntara_node_script"]
+source = ["syntara_node_http_request", "syntara_node_script", "syntara_node_agent_runtime"]
 
 [tool.coverage.report]
 show_missing = true

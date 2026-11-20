@@ -1,0 +1,16 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: agent-runtime
+  version: 0.1.0
+  displayName: Agent Runtime
+  description: Isolated agent reasoning loop with host callbacks for model and MCP operations.
+spec:
+  documentation:
+    path: README.md
+  workloads:
+    agent-runtime:
+      image: agent-runtime-runner
+  targets:
+    - manifest.yaml
