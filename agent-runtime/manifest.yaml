@@ -12,6 +12,7 @@ spec:
   input:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       additionalProperties: false
       required: [contract_version, messages]
@@ -42,6 +43,7 @@ spec:
   output:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       additionalProperties: false
       required: [contract_version, content, last_turn_index, total_duration_ms]
@@ -86,5 +88,6 @@ spec:
   error:
     kind: inline
     value:
+      $schema: https://json-schema.org/draft/2020-12/schema
       type: object
       additionalProperties: true
