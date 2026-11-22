@@ -5,7 +5,7 @@
 > `syntara-sdk-script` / `migration-test` are **not** sufficient acceptance.
 >
 > This proof was recorded with contracts `0.1.0a4`; the current repository pin
-> is `0.1.0a5`, which this historical run does not validate.
+> is `0.1.0a6`, which this historical run does not validate.
 
 Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),
 [`migration-pathway.md`](migration-pathway.md).
