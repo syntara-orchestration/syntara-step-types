@@ -9,18 +9,18 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "push" && target_branch == "early-access" &&
+      event == "push" && target_branch == "devel" &&
       files.all.exists(x,
         x.startsWith("aap-workflow/") ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-aap-workflow-rhel9-early-access-push.yaml".pathChanged())
+        ".tekton/ao-aap-workflow-devel-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
-    appstudio.openshift.io/component: ao-aap-workflow-early-access
+    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
+    appstudio.openshift.io/component: ao-aap-workflow-devel
     pipelines.appstudio.openshift.io/type: build
-  name: ao-aap-workflow-early-access-on-push
+  name: ao-aap-workflow-devel-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -54,7 +54,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-aap-workflow-early-access
+    serviceAccountName: build-pipeline-ao-aap-workflow-devel
   workspaces:
     - name: git-auth
       secret:
