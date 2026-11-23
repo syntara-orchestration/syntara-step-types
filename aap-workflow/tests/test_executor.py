@@ -371,7 +371,8 @@ def test_parent_failure_status_returns_failed_branch(monkeypatch: pytest.MonkeyP
     assert output.status == "failed"
     assert output.workflow_job_id == 7
     assert output.workflow_job_status == "failed"
-    assert output.error is not None and "failed" in output.error
+    assert output.error is not None
+    assert "failed" in output.error
 
 
 @respx.mock
