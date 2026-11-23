@@ -170,3 +170,25 @@ async def test_serialized_result_limit_is_still_enforced():
         await run_script_async(
             "python", f"print('x' * {MAX_CAPTURE_BYTES})", {}, max_output_bytes=MAX_CAPTURE_BYTES
         )
+
+
+@pytest.mark.parametrize(
+    ("step", "code"),
+    [
+        (BashScriptStep(), "echo before; echo problem >&2; exit 7"),
+        (
+            PythonScriptStep(),
+            'import sys; print("before"); print("problem", file=sys.stderr); sys.exit(7)',
+        ),
+    ],
+)
+def test_failed_script_preserves_captured_output(step, code, context):
+    with pytest.raises(StepFailure) as error:
+        step.run(ScriptInput(code=code), context)
+    detail = error.value.error_result.model_dump()
+    assert detail["return_code"] == 7
+    assert detail["stdout"] == "before\n"
+    assert detail["stderr"] == "problem\n"
+    assert detail["code"] == "REMOTE_REJECTED"
+    assert detail["category"] == "business"
+    assert detail["retryable"] is False
