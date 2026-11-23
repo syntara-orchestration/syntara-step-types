@@ -4,13 +4,21 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 FROM base AS builder
-# renovate: datasource=pypi depName=syntara-plugin-contracts
-ARG CONTRACTS_VERSION=0.1.0a6
+# Runtime closure exported from uv.lock. Regenerate with the command in the file header.
+COPY aap-workflow/requirements.txt /tmp/requirements.txt
+COPY aap-workflow/build-requirements.txt /tmp/build-requirements.txt
+RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r /tmp/requirements.txt
 COPY aap-workflow/pyproject.toml /app/pyproject.toml
 COPY aap-workflow/manifest.yaml /app/manifest.yaml
 COPY aap-workflow/src /app/src
-# Resolve the published runtime contracts and all step dependencies in a clean build context.
-RUN pip install --no-cache-dir "syntara-plugin-contracts==${CONTRACTS_VERSION}" .
+# Build tools stay out of the runtime prefix. The local tree is installed with
+# --no-deps so pip cannot resolve a newer dependency than the lockfile.
+RUN pip install --no-cache-dir --require-hashes --only-binary :all: \
+        --target /tmp/build-deps -r /tmp/build-requirements.txt \
+    && PYTHONPATH=/tmp/build-deps pip wheel --no-cache-dir --no-deps --no-build-isolation \
+        --only-binary :all: --wheel-dir /tmp/wheels . \
+    && pip install --no-cache-dir --no-deps --only-binary :all: /tmp/wheels/*.whl \
+    && rm -rf /tmp/requirements.txt /tmp/build-requirements.txt /tmp/build-deps /tmp/wheels
 
 FROM base
 COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12

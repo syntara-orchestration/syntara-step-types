@@ -5,6 +5,9 @@ runtime APIs used by the step implementations and their `ContainerService` entry
 The shared `script-runtime` and `http-request` package metadata declare contracts as
 direct runtime dependencies. The Python and Bash workload images package that shared
 runtime with their own manifests and pin contracts through `CONTRACTS_VERSION`.
+The aap-workflow image installs the same closure from
+`aap-workflow/requirements.txt`, a hashed export of `uv.lock`, using
+`pip install --require-hashes`.
 
 The repository also uses `syntara-plugin-sdk` in its development dependency group.
 Tests use its plugin settings and compilation APIs (`load_settings`, `BuildRequest`,

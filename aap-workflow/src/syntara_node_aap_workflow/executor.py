@@ -291,6 +291,38 @@ async def _resolve_organization_id(aap: _AapClient, inputs: AapWorkflowInput) ->
     return int(results[0]["id"])
 
 
+async def _resolve_label_id(aap: _AapClient, name: str, org_id: int) -> int:
+    """Return one label id, creating the label when AAP does not have it yet."""
+    response = await aap.get(f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id})
+    if response.status_code in (401, 403, 404):
+        raise _map_status_error(response.status_code, f"label '{name}' lookup")
+    if response.status_code >= 400:
+        raise _failure(
+            FailureCode.UPSTREAM_TRANSIENT,
+            f"Label '{name}' lookup failed: HTTP {response.status_code}.",
+            retryable=True,
+        )
+    try:
+        results = response.json().get("results", [])
+    except ValueError:
+        raise _failure(
+            FailureCode.UPSTREAM_TRANSIENT, "Label lookup returned invalid data."
+        ) from None
+    if results:
+        return int(results[0]["id"])
+    # Label does not exist — create it (AAP's on-launch behavior).
+    create = await aap.post(f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id})
+    if create.status_code == 409:
+        retry = await aap.get(f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id})
+        results = retry.json().get("results", []) if retry.status_code == 200 else []
+        if not results:
+            raise _failure(FailureCode.REMOTE_REJECTED, f"Label '{name}' creation conflicted.")
+        return int(results[0]["id"])
+    if create.status_code not in (200, 201):
+        raise _map_status_error(create.status_code, f"label '{name}' creation")
+    return int(create.json()["id"])
+
+
 async def _resolve_label_ids(aap: _AapClient, inputs: AapWorkflowInput) -> list[int]:
     """Resolve label names to IDs, creating missing labels (adapter behavior)."""
     _validate_labels(inputs.labels)
@@ -301,40 +333,7 @@ async def _resolve_label_ids(aap: _AapClient, inputs: AapWorkflowInput) -> list[
     )
     label_ids: list[int] = []
     for name in inputs.labels:
-        response = await aap.get(
-            f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id}
-        )
-        if response.status_code in (401, 403, 404):
-            raise _map_status_error(response.status_code, f"label '{name}' lookup")
-        if response.status_code >= 400:
-            raise _failure(
-                FailureCode.UPSTREAM_TRANSIENT,
-                f"Label '{name}' lookup failed: HTTP {response.status_code}.",
-                retryable=True,
-            )
-        try:
-            results = response.json().get("results", [])
-        except ValueError:
-            raise _failure(
-                FailureCode.UPSTREAM_TRANSIENT, "Label lookup returned invalid data."
-            ) from None
-        if results:
-            label_ids.append(int(results[0]["id"]))
-            continue
-        # Label does not exist — create it (AAP's on-launch behavior).
-        create = await aap.post(f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id})
-        if create.status_code == 409:
-            retry = await aap.get(
-                f"{AAP_API_PREFIX}/labels/", {"name": name, "organization": org_id}
-            )
-            results = retry.json().get("results", []) if retry.status_code == 200 else []
-            if not results:
-                raise _failure(FailureCode.REMOTE_REJECTED, f"Label '{name}' creation conflicted.")
-            label_ids.append(int(results[0]["id"]))
-        elif create.status_code not in (200, 201):
-            raise _map_status_error(create.status_code, f"label '{name}' creation")
-        else:
-            label_ids.append(int(create.json()["id"]))
+        label_ids.append(await _resolve_label_id(aap, name, org_id))
     return label_ids
 
 
@@ -407,6 +406,76 @@ async def _find_token_job(aap: _AapClient, template_id: int, token: str) -> int 
     return matches[0]
 
 
+async def _launch_attempt(
+    aap: _AapClient,
+    launch_url: str,
+    body: dict[str, Any],
+    template_id: int,
+    token: str,
+    attempt: int,
+) -> int | None:
+    """POST one launch attempt.
+
+    Returns the job id when the launch or a reconciliation succeeds. Returns
+    ``None`` when the response was lost, no correlated job exists, and one
+    further POST is still allowed.
+    """
+    try:
+        response = await aap.post(launch_url, body)
+    except httpx.ConnectError as exc:
+        # The connection was never established — the POST was not delivered.
+        raise _failure(
+            FailureCode.UPSTREAM_TRANSIENT,
+            "Failed to connect to AAP for the workflow launch.",
+            retryable=True,
+        ) from exc
+    except httpx.HTTPError as exc:
+        # The POST may have been sent — reconcile via the token before any
+        # further POST. Adopt a matching job; never adopt on status alone.
+        adopted = await _find_token_job(aap, template_id, token)
+        if adopted is not None:
+            logger.info(
+                "Adopted correlated AAP workflow job after lost launch response "
+                "(template_id=%s, job_id=%s)",
+                template_id,
+                adopted,
+            )
+            return adopted
+        if attempt >= MAX_LAUNCH_ATTEMPTS:
+            raise _failure(
+                FailureCode.OUTCOME_UNKNOWN,
+                "The AAP workflow launch request was sent but its response was "
+                "lost, and no correlated workflow job was found.",
+            ) from exc
+        logger.info(
+            "Launch response lost with no correlated job; one further launch "
+            "attempt allowed (attempt=%s)",
+            attempt,
+        )
+        return None
+
+    if response.status_code in LAUNCH_RETRYABLE_STATUSES:
+        # A received retryable status proves the launch did not happen; still
+        # non-retryable once a launch request was sent (plan Step 5).
+        raise _failure(
+            FailureCode.REMOTE_REJECTED,
+            f"Workflow job template launch rejected: HTTP {response.status_code}.",
+        )
+    if response.status_code >= 400:
+        raise _map_status_error(response.status_code, "workflow job template launch")
+    try:
+        job_id = int(response.json()["id"])
+    except (ValueError, KeyError) as exc:
+        raise _failure(
+            FailureCode.REMOTE_REJECTED,
+            "Workflow job template launch returned no job id.",
+        ) from exc
+    logger.info(
+        "Launched AAP workflow job template (template_id=%s, job_id=%s)", template_id, job_id
+    )
+    return job_id
+
+
 async def _launch(
     aap: _AapClient, inputs: AapWorkflowInput, cancellation: Event | None
 ) -> tuple[int, int]:
@@ -437,61 +506,9 @@ async def _launch(
         # Each attempt owns a unique correlation token carried in extra_vars.
         token = uuid.uuid4().hex
         body["extra_vars"] = {**merged_extra_vars, LAUNCH_TOKEN_EXTRA_VAR: token}
-
-        try:
-            response = await aap.post(launch_url, body)
-        except httpx.ConnectError as exc:
-            # The connection was never established — the POST was not delivered.
-            raise _failure(
-                FailureCode.UPSTREAM_TRANSIENT,
-                "Failed to connect to AAP for the workflow launch.",
-                retryable=True,
-            ) from exc
-        except httpx.HTTPError as exc:
-            # The POST may have been sent — reconcile via the token before any
-            # further POST. Adopt a matching job; never adopt on status alone.
-            adopted = await _find_token_job(aap, template_id, token)
-            if adopted is not None:
-                logger.info(
-                    "Adopted correlated AAP workflow job after lost launch response "
-                    "(template_id=%s, job_id=%s)",
-                    template_id,
-                    adopted,
-                )
-                return adopted, template_id
-            if attempt >= MAX_LAUNCH_ATTEMPTS:
-                raise _failure(
-                    FailureCode.OUTCOME_UNKNOWN,
-                    "The AAP workflow launch request was sent but its response was "
-                    "lost, and no correlated workflow job was found.",
-                ) from exc
-            logger.info(
-                "Launch response lost with no correlated job; one further launch "
-                "attempt allowed (attempt=%s)",
-                attempt,
-            )
-            continue
-
-        if response.status_code in LAUNCH_RETRYABLE_STATUSES:
-            # A received retryable status proves the launch did not happen; still
-            # non-retryable once a launch request was sent (plan Step 5).
-            raise _failure(
-                FailureCode.REMOTE_REJECTED,
-                f"Workflow job template launch rejected: HTTP {response.status_code}.",
-            )
-        if response.status_code >= 400:
-            raise _map_status_error(response.status_code, "workflow job template launch")
-        try:
-            job_id = int(response.json()["id"])
-        except (ValueError, KeyError) as exc:
-            raise _failure(
-                FailureCode.REMOTE_REJECTED,
-                "Workflow job template launch returned no job id.",
-            ) from exc
-        logger.info(
-            "Launched AAP workflow job template (template_id=%s, job_id=%s)", template_id, job_id
-        )
-        return job_id, template_id
+        job_id = await _launch_attempt(aap, launch_url, body, template_id, token, attempt)
+        if job_id is not None:
+            return job_id, template_id
 
     raise AssertionError("unreachable launch loop exit")
 
