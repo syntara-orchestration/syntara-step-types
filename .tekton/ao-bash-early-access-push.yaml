@@ -9,20 +9,20 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "push" && target_branch == "devel" &&
+      event == "push" && target_branch == "early-access" &&
       files.all.exists(x,
-        x.startsWith("script-python/") ||
+        x.startsWith("script-bash/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-python-rhel9-devel-push.yaml".pathChanged())
+        ".tekton/ao-bash-early-access-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ao-python-devel
+    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
+    appstudio.openshift.io/component: ao-bash-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: ao-python-devel-on-push
+  name: ao-bash-early-access-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -31,9 +31,9 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-bash-rhel9:{{revision}}
     - name: dockerfile
-      value: script-python/Containerfile
+      value: script-bash/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -58,7 +58,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-python-rhel9-devel
+    serviceAccountName: build-pipeline-ao-bash-early-access
   workspaces:
     - name: git-auth
       secret:

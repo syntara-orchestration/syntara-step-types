@@ -17,7 +17,7 @@ metadata:
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-python-rhel9-early-access-pull-request.yaml".pathChanged())
+        ".tekton/ao-python-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
@@ -61,7 +61,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-script-python-early-access
+    serviceAccountName: build-pipeline-ao-python-early-access
   workspaces:
     - name: git-auth
       secret:

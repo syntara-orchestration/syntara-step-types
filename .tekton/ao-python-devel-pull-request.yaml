@@ -17,7 +17,7 @@ metadata:
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-python-rhel9-devel-pull-request.yaml".pathChanged())
+        ".tekton/ao-python-devel-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
@@ -61,7 +61,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-python-rhel9-devel
+    serviceAccountName: build-pipeline-ao-python-devel
   workspaces:
     - name: git-auth
       secret:

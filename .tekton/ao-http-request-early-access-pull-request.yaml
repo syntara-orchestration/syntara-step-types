@@ -10,18 +10,18 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "pull_request" && target_branch == "devel" &&
+      event == "pull_request" && target_branch == "early-access" &&
       files.all.exists(x,
         x.startsWith("http-request/") ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-http-request-rhel9-devel-pull-request.yaml".pathChanged())
+        ".tekton/ao-http-request-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ao-http-request-devel
+    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
+    appstudio.openshift.io/component: ao-http-request-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: ao-http-request-devel-on-pull-request
+  name: ao-http-request-early-access-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -57,7 +57,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-http-request-rhel9-devel
+    serviceAccountName: build-pipeline-ao-http-request-early-access
   workspaces:
     - name: git-auth
       secret:
