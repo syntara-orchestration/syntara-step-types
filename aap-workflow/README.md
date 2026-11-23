@@ -5,9 +5,10 @@ Platform (AAP) instance from a container step. AAP owns the underlying workflow
 and its child jobs; the step launches the template, observes the parent workflow
 job to a terminal status, and projects the preserved result fields.
 
-**Status: scaffold (plan Step 1).** Input/output contracts, integration type,
-credential recipe, and the gRPC entrypoint are in place. The launch/observe
-executor lands with plan Step 4 — see
+**Status: executor implemented (plan Steps 1–5).** Input/output contracts,
+integration type, credential recipe, gRPC entrypoint, the launch/observe
+executor, and uncertain-launch correlation-token reconciliation are in place.
+Remaining: integration test suites and docs polish (plan Steps 6–7) — see
 [docs/aap-workflow-plan.md](../docs/aap-workflow-plan.md) and
 [docs/aap-workflow-sdk-verification.md](../docs/aap-workflow-sdk-verification.md).
 
@@ -38,19 +39,41 @@ container receives the resolved endpoint and credential.
 | `labels` | array of strings | no | AAP label names to append |
 | `inventory_id` | integer | no | Inventory override by ID |
 | `inventory_name` | string | no | Inventory override by name (requires `organization_name`) |
-| `credential_name` | string | no | Declared logical AAP credential name |
 | `timeout` | integer | no | Execution budget in seconds |
+
+The integration endpoint, TLS material, and credential are **not author
+inputs**. AO resolves the AAP integration and credential and supplies them
+through the SDK runtime: `runtime_context["aapEndpoint"]` (HTTPS gateway base
+URL), `runtime_context["aapVerifySsl"]`, optional
+`runtime_context["aapCaCertificate"]`, and the declared `aap-credential`
+document (token, or username + password — token wins, matching the in-process
+adapter's `resolve_aap_auth`). The step validates the endpoint and TLS settings
+before touching the credential; all AAP requests target that endpoint only.
 
 ## Outputs
 
+Preserves the in-process adapter's discriminated union on `status`
+(Completed/Failed):
+
 | Field | Type | Description |
 | --- | --- | --- |
-| `workflow_job_id` | integer | AAP workflow job ID |
-| `workflow_job_url` | string | URL to view the workflow job in the AAP UI |
-| `workflow_job_status` | string | Terminal workflow job status |
-| `artifacts` | object | Artifacts recorded on the workflow job (truncated to the result size limit) |
-| `created` / `started` / `finished` | string | ISO 8601 timestamps |
-| `error` | string | Error detail on the failure branch |
+| `status` | `"completed"` \| `"failed"` | Result branch |
+| `workflow_job_id` | integer | AAP workflow job ID (required on both branches) |
+| `workflow_job_url` | string | URL to view the workflow job in the AAP UI — derived from the integration endpoint as `{base_url}/execution/jobs/workflow/{job_id}/output`, the same formula as the in-process adapter (not taken from the AAP response) |
+| `workflow_job_status` | string | Workflow job status (successful, failed, etc.) |
+| `artifacts` | object | Artifacts recorded on the workflow job |
+| `created` / `started` / `finished` | string | ISO 8601 timestamps (required on the completed branch) |
+| `error` | string | Error detail (required on the failed branch) |
+
+The completed branch requires `workflow_job_id`, `created`, `started`, and
+`finished`; the failed branch requires `error` and `workflow_job_id`, with all
+other fields nullable.
+
+**Result size limit:** the serialized result is bounded to the SDK's 1 MiB
+limit. `artifacts` is truncated first — the largest keys are dropped and listed
+under `__syntara_truncated_artifacts__` — and the workflow identity fields are
+never dropped to make room. A result that exceeds the limit with no artifacts
+left fails terminally.
 
 ## Build
 

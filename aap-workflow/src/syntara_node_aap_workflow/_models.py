@@ -1,14 +1,19 @@
 """Pydantic models for the AAP Workflow step.
 
 The input surface preserves the in-process adapter's author-facing schema
-(aap_workflow_job_template.schema.json) minus the AO-only identifiers
+(``aap_workflow_job_template.schema.json``) minus the AO-only identifiers
 (``integration_id`` / ``credential_id``), which AO resolves into the integration
 endpoint and the declared credential before the container is invoked.
+
+The output preserves the adapter's discriminated result union on ``status``
+(Completed/Failed) in a single model: branch-specific required fields are
+enforced by a model validator so the serialized result matches the adapter's
+``oneOf`` schema exactly.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,7 +35,6 @@ class AapWorkflowInput(BaseModel):
     labels: list[str] = Field(default_factory=list)
     inventory_id: int | None = Field(default=None, ge=1)
     inventory_name: str | None = Field(default=None, min_length=1)
-    credential_name: str | None = None
     timeout: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
@@ -55,14 +59,17 @@ class AapWorkflowInput(BaseModel):
 class AapWorkflowOutput(BaseModel):
     """Observed result of a launched AAP workflow job.
 
-    Preserves the adapter's result fields. The failure branch of the adapter's
-    discriminated union additionally carries ``error``; the container returns
-    the same fields on failure so AO can project today's result schema
-    (final mapping is settled in AAP-98908).
+    Preserves the adapter's discriminated result union on ``status``:
+
+    - ``completed`` requires ``workflow_job_id``, ``created``, ``started``,
+      and ``finished`` (the adapter's Completed Result branch).
+    - ``failed`` requires ``error`` and ``workflow_job_id``; every other field
+      may be null (the adapter's Failed Result branch).
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    status: Literal["completed", "failed"]
     workflow_job_id: int | None = None
     workflow_job_url: str | None = None
     workflow_job_status: str | None = None
@@ -71,3 +78,19 @@ class AapWorkflowOutput(BaseModel):
     started: str | None = None
     finished: str | None = None
     error: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_union_branch(self) -> AapWorkflowOutput:
+        if self.status == "completed":
+            missing = [
+                name
+                for name in ("workflow_job_id", "created", "started", "finished")
+                if getattr(self, name) is None
+            ]
+            if missing:
+                raise ValueError(
+                    f"completed result requires non-null values for: {', '.join(missing)}."
+                )
+        elif self.error is None:
+            raise ValueError("failed result requires error.")
+        return self

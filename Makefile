@@ -82,7 +82,7 @@ sdk-plugin-run: sdk-plugin-check
 		http-request) filter='.ok == true and .output.status_code == 200' ;; \
 		script-python) filter='.ok == true and .output.return_code == 0 and .output.stdout_json.result == 42' ;; \
 		script-bash) filter='.ok == true and .output.return_code == 0 and .output.stdout == "hello from bash\n"' ;; \
-		aap-workflow) echo 'aap-workflow: run smoke test deferred until the executor lands (plan Step 4)'; exit 0 ;; \
+		aap-workflow) echo 'aap-workflow: run smoke requires a reachable AAP gateway; covered by unit tests and integration suites (plan Step 6)'; exit 0 ;; \
 	esac; \
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin run --mode source --input-file example.json --json | jq -e "$$filter"
 

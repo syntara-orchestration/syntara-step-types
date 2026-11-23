@@ -8,6 +8,10 @@ spec:
   id: syntara.aap
   endpointKinds: [https]
   credentialTypes: [syntara.aap.credential]
+  # AO (AAP-98873/AAP-98908) projects the resolved integration into the step's
+  # runtime_context: aapEndpoint (baseUrl), aapVerifySsl (verifySsl), and
+  # aapCaCertificate (caCertificate). The step validates these before any
+  # credential access and targets this endpoint only.
   configuration:
     kind: inline
     value:
