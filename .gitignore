@@ -11,3 +11,5 @@ __pycache__/
 /script-bash/dist/
 .coverage
 /coverage.xml
+/aap-workflow/dist/
+/dist/

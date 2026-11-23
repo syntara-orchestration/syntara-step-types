@@ -1,0 +1,33 @@
+apiVersion: syntara.io/v1alpha1
+kind: PluginBuildSettings
+manifest: plugin.yaml
+
+## Development defaults. Replace the registry values before publishing. Do not
+## put a registry password, token, or auth-file path in this file.
+registry:
+  origin: http://localhost:5000
+  artifactRepository: syntara/plugins/aap-workflow
+  workloadRepository: syntara/workloads/aap-workflow
+  catalogRepository: syntara/catalog-index
+  username: publisher
+  allowInsecureLoopbackHttp: true
+
+build:
+  artifactOutput: dist/aap-workflow.oci.tar
+  runtimeBindings: runtime-bindings.yaml
+  workloads:
+    aap-workflow:
+      engine: podman
+      context: ..
+      containerfile: Containerfile
+      tag: 0.1.0
+      platform: linux/amd64
+
+publish:
+  channel: 0.1.0
+  updateCatalog: true
+
+catalog:
+  sourceId: syntara-catalog
+  channel: stable
+  expiresInHours: 168

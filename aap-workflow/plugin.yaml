@@ -1,0 +1,18 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: aap-workflow
+  version: 0.1.0
+  displayName: AAP Workflow
+  description: Launches and observes a workflow job template on an existing AAP instance.
+spec:
+  documentation:
+    path: README.md
+  workloads:
+    aap-workflow:
+      image: aap-workflow-runner
+  targets:
+    - manifest.yaml
+    - src/syntara_node_aap_workflow/integration.yaml
+    - src/syntara_node_aap_workflow/aap-credential.yaml

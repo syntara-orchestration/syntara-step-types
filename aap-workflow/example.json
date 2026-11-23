@@ -1,0 +1,6 @@
+{
+  "workflow_job_template_name": "example-workflow",
+  "organization_name": "Default",
+  "extra_vars": {},
+  "timeout": 3600
+}

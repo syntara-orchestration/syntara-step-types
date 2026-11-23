@@ -1,0 +1,28 @@
+apiVersion: syntara.io/v1alpha1
+kind: IntegrationType
+metadata:
+  name: aap
+  displayName: Ansible Automation Platform
+  description: AAP gateway connection for the AAP Workflow step (and the AAP Job step).
+spec:
+  id: syntara.aap
+  endpointKinds: [https]
+  credentialTypes: [syntara.aap.credential]
+  configuration:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      required: [baseUrl]
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+          pattern: "^https://"
+        verifySsl:
+          type: boolean
+          default: true
+          description: Verify the AAP gateway TLS certificate.
+        caCertificate:
+          type: string
+          description: PEM-encoded CA certificate for the AAP gateway (optional).
