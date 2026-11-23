@@ -239,8 +239,9 @@ by id or name+organization, `extra_vars`, `limit`, `scm_branch`, `tags` →
 `integration_id` / `credential_id` are AO-only: AO resolves the AAP
 integration and credential into the step's runtime context
 (`aapEndpoint` / `aapVerifySsl` / `aapCaCertificate`) and the declared
-`syntara.aap.credential` binding. See `aap-workflow/COMPATIBILITY.md` for the
-full record, including the reserved `_syntara_launch_token` extra_vars key.
+`syntara.aap.credential` binding. The full compatibility record — including
+the reserved `_syntara_launch_token` extra_vars key — is tracked on
+AAP-98907 and in `aap-workflow/README.md`.
 
 **Output freeze (business → `${node.*}`)** — the plugin's business output is
 itself the adapter's discriminated union on `status` (Completed/Failed), so

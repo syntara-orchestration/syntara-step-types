@@ -8,10 +8,12 @@ job to a terminal status, and projects the preserved result fields.
 **Status: implemented and tested (plan Steps 1–7).** Input/output contracts,
 integration type, credential recipe, gRPC entrypoint, the launch/observe
 executor, uncertain-launch correlation-token reconciliation, unit and
-integration suites, and this documentation are in place. See
-[COMPATIBILITY.md](COMPATIBILITY.md) for every intentional difference from the
-in-process step (required reading for AAP-98908),
-[docs/aap-workflow-plan.md](../docs/aap-workflow-plan.md), and
+integration suites, and this documentation are in place. The compatibility
+record against the in-process step is tracked on
+[AAP-98907](https://redhat.atlassian.net/browse/AAP-98907) and summarized in
+the repository's
+[compatibility matrix](../docs/compatibility-matrix.md); also see
+[docs/aap-workflow-plan.md](../docs/aap-workflow-plan.md) and
 [docs/aap-workflow-sdk-verification.md](../docs/aap-workflow-sdk-verification.md).
 
 ## Prerequisites
@@ -101,7 +103,8 @@ left fails terminally.
 
 A parent that reaches a failure status is a **completed observation**: the step
 does not fail the SDK invocation, it returns the failed result branch with the
-preserved fields (see [COMPATIBILITY.md](COMPATIBILITY.md) §3).
+preserved fields; AO must map `status == "failed"` to node failure
+(AAP-98908).
 
 ## Cancellation behavior
 
