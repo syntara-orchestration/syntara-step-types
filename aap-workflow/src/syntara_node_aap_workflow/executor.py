@@ -521,6 +521,64 @@ async def _cancel_workflow_job(aap: _AapClient, job_id: int) -> None:
         logger.warning("Best-effort AAP cancel request failed (job_id=%s)", job_id)
 
 
+def _raise_if_poll_deadline(job_id: int, deadline: float, last_error: str | None) -> None:
+    """A healthy poll that runs out of budget is a timeout; errors until then are unknown."""
+    if monotonic() < deadline:
+        return
+    if last_error is not None:
+        raise _failure(
+            FailureCode.OUTCOME_UNKNOWN,
+            f"AAP workflow job {job_id} launched successfully but its completion "
+            f"status is unknown — polling failed until the deadline. "
+            f"Last error: {last_error}",
+        )
+    raise _failure(
+        FailureCode.TIMEOUT,
+        f"AAP workflow job {job_id} did not reach a terminal status before the timeout.",
+    )
+
+
+async def _fetch_workflow_job(aap: _AapClient, status_url: str, job_id: int) -> dict[str, Any]:
+    """GET the workflow job. Transient statuses are raised as HTTP errors for the poll loop."""
+    response = await aap.get(status_url)
+    if response.status_code in TRANSIENT_POLL_STATUSES:
+        raise httpx.HTTPStatusError(
+            "transient poll status", request=response.request, response=response
+        )
+    if response.status_code in (401, 403):
+        raise _map_status_error(response.status_code, "workflow job status poll")
+    if response.status_code == 404:
+        raise _failure(FailureCode.NOT_FOUND, f"AAP workflow job {job_id} disappeared.")
+    if response.status_code >= 400:
+        raise _failure(
+            FailureCode.REMOTE_REJECTED,
+            f"Workflow job status poll failed: HTTP {response.status_code}.",
+        )
+    job_data: dict[str, Any] = response.json()
+    return job_data
+
+
+def _record_poll_error(
+    job_id: int, consecutive_errors: int, exc: httpx.HTTPError
+) -> tuple[int, str]:
+    """Count one transient poll failure and stop once the consecutive-error cap is reached."""
+    consecutive_errors += 1
+    last_error = str(exc) or type(exc).__name__
+    logger.warning(
+        "Transient error polling workflow job status (job_id=%s, consecutive=%s)",
+        job_id,
+        consecutive_errors,
+    )
+    if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
+        raise _failure(
+            FailureCode.OUTCOME_UNKNOWN,
+            f"AAP workflow job {job_id} launched successfully but its completion "
+            f"status is unknown — polling failed {consecutive_errors} consecutive "
+            f"times. Last error: {last_error}",
+        ) from exc
+    return consecutive_errors, last_error
+
+
 async def _poll_parent(
     aap: _AapClient, job_id: int, deadline: float, cancellation: Event | None
 ) -> dict[str, Any]:
@@ -542,50 +600,11 @@ async def _poll_parent(
                 FailureCode.CANCELLED,
                 "The AAP workflow observation was cancelled; an AAP cancel was requested.",
             )
-        if monotonic() >= deadline:
-            if last_error is not None:
-                raise _failure(
-                    FailureCode.OUTCOME_UNKNOWN,
-                    f"AAP workflow job {job_id} launched successfully but its completion "
-                    f"status is unknown — polling failed until the deadline. "
-                    f"Last error: {last_error}",
-                )
-            raise _failure(
-                FailureCode.TIMEOUT,
-                f"AAP workflow job {job_id} did not reach a terminal status before the timeout.",
-            )
-
+        _raise_if_poll_deadline(job_id, deadline, last_error)
         try:
-            response = await aap.get(status_url)
-            if response.status_code in TRANSIENT_POLL_STATUSES:
-                raise httpx.HTTPStatusError(
-                    "transient poll status", request=response.request, response=response
-                )
-            if response.status_code in (401, 403):
-                raise _map_status_error(response.status_code, "workflow job status poll")
-            if response.status_code == 404:
-                raise _failure(FailureCode.NOT_FOUND, f"AAP workflow job {job_id} disappeared.")
-            if response.status_code >= 400:
-                raise _failure(
-                    FailureCode.REMOTE_REJECTED,
-                    f"Workflow job status poll failed: HTTP {response.status_code}.",
-                )
-            job_data: dict[str, Any] = response.json()
+            job_data = await _fetch_workflow_job(aap, status_url, job_id)
         except httpx.HTTPError as exc:
-            consecutive_errors += 1
-            last_error = str(exc) or type(exc).__name__
-            logger.warning(
-                "Transient error polling workflow job status (job_id=%s, consecutive=%s)",
-                job_id,
-                consecutive_errors,
-            )
-            if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
-                raise _failure(
-                    FailureCode.OUTCOME_UNKNOWN,
-                    f"AAP workflow job {job_id} launched successfully but its completion "
-                    f"status is unknown — polling failed {consecutive_errors} consecutive "
-                    f"times. Last error: {last_error}",
-                ) from exc
+            consecutive_errors, last_error = _record_poll_error(job_id, consecutive_errors, exc)
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
             continue
 
