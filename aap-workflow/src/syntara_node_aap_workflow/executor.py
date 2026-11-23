@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import ssl
 import uuid
 from collections.abc import Awaitable, Callable
 from threading import Event
@@ -99,10 +100,20 @@ def _map_status_error(status_code: int, what: str) -> ContainerInvocationError:
     return _failure(FailureCode.REMOTE_REJECTED, f"{what}: HTTP {status_code}.")
 
 
-def _http_verify(connection: AapResolvedAuth) -> bool | str:
-    if connection.ca_certificate is not None:
-        return connection.ca_certificate
-    return connection.verify_ssl
+def _http_verify(connection: AapResolvedAuth) -> bool | ssl.SSLContext:
+    """Build httpx's verify parameter, matching the adapter's tls_utils.
+
+    httpx accepts a path (not PEM content) for custom CAs, so a custom CA is
+    loaded into an ssl.SSLContext via cadata, as ``build_integration_httpx_verify``
+    does in the in-process adapter.
+    """
+    if not connection.verify_ssl:
+        return False
+    if connection.ca_certificate and connection.ca_certificate.strip():
+        context = ssl.create_default_context()
+        context.load_verify_locations(cadata=connection.ca_certificate.strip())
+        return context
+    return True
 
 
 class _AapClient:

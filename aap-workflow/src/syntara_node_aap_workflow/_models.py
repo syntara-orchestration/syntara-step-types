@@ -13,9 +13,10 @@ enforced by a model validator so the serialized result matches the adapter's
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 
 class AapWorkflowInput(BaseModel):
@@ -79,6 +80,17 @@ class AapWorkflowOutput(BaseModel):
     finished: str | None = None
     error: str | None = None
 
+    @model_serializer(mode="wrap")
+    def _drop_none(self, handler: Callable[[Any], dict[str, Any]]) -> dict[str, Any]:
+        """Omit null fields, matching the adapter's serialized result shape.
+
+        The manifest output is the adapter's discriminated union with
+        ``additionalProperties: false`` per branch; pydantic's default dump
+        would emit ``"error": null`` on the completed branch (and similar
+        nulls on the failed branch), which the union rejects.
+        """
+        return {key: value for key, value in handler(self).items() if value is not None}
+
     @model_validator(mode="after")
     def _validate_union_branch(self) -> AapWorkflowOutput:
         if self.status == "completed":
@@ -91,6 +103,6 @@ class AapWorkflowOutput(BaseModel):
                 raise ValueError(
                     f"completed result requires non-null values for: {', '.join(missing)}."
                 )
-        elif self.error is None:
-            raise ValueError("failed result requires error.")
+        elif self.error is None or self.workflow_job_status is None:
+            raise ValueError("failed result requires error and workflow_job_status.")
         return self

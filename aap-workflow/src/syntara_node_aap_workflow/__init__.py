@@ -58,9 +58,8 @@ class AapWorkflowStep(ActionStep[AapWorkflowInput, AapWorkflowOutput]):
     """Launch an AAP workflow job template and observe it to a terminal status.
 
     The integration endpoint, TLS material, and credential arrive through the
-    SDK runtime (runtime_context + the declared ``aap-credential``), never as
-    author input. Scaffold state (plan Steps 1–2): connection resolution is
-    live; the launch/observe executor lands with plan Step 4.
+    SDK runtime (runtime_context + the declared ``syntara.aap.credential``),
+    never as author input.
     """
 
     def run(self, inputs: AapWorkflowInput, context: ExecutionContext) -> AapWorkflowOutput:

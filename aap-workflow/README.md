@@ -5,12 +5,22 @@ Platform (AAP) instance from a container step. AAP owns the underlying workflow
 and its child jobs; the step launches the template, observes the parent workflow
 job to a terminal status, and projects the preserved result fields.
 
-**Status: executor implemented (plan Steps 1–5).** Input/output contracts,
+**Status: implemented and tested (plan Steps 1–7).** Input/output contracts,
 integration type, credential recipe, gRPC entrypoint, the launch/observe
-executor, and uncertain-launch correlation-token reconciliation are in place.
-Remaining: integration test suites and docs polish (plan Steps 6–7) — see
-[docs/aap-workflow-plan.md](../docs/aap-workflow-plan.md) and
+executor, uncertain-launch correlation-token reconciliation, unit and
+integration suites, and this documentation are in place. See
+[COMPATIBILITY.md](COMPATIBILITY.md) for every intentional difference from the
+in-process step (required reading for AAP-98908),
+[docs/aap-workflow-plan.md](../docs/aap-workflow-plan.md), and
 [docs/aap-workflow-sdk-verification.md](../docs/aap-workflow-sdk-verification.md).
+
+## Prerequisites
+
+- A reachable, supported AAP instance (gateway controller API over HTTPS).
+- A workflow job template containing at least one child job.
+- Authorized AAP integration credentials (token, or username + password).
+- An AO AAP integration configured with the gateway base URL (and optional
+  TLS verify/CA settings), resolved by AO into the step's runtime context.
 
 ## Runtime model
 
@@ -45,7 +55,7 @@ The integration endpoint, TLS material, and credential are **not author
 inputs**. AO resolves the AAP integration and credential and supplies them
 through the SDK runtime: `runtime_context["aapEndpoint"]` (HTTPS gateway base
 URL), `runtime_context["aapVerifySsl"]`, optional
-`runtime_context["aapCaCertificate"]`, and the declared `aap-credential`
+`runtime_context["aapCaCertificate"]`, and the declared `syntara.aap.credential`
 document (token, or username + password — token wins, matching the in-process
 adapter's `resolve_aap_auth`). The step validates the endpoint and TLS settings
 before touching the credential; all AAP requests target that endpoint only.
@@ -74,6 +84,34 @@ limit. `artifacts` is truncated first — the largest keys are dropped and liste
 under `__syntara_truncated_artifacts__` — and the workflow identity fields are
 never dropped to make room. A result that exceeds the limit with no artifacts
 left fails terminally.
+
+## Failure behavior
+
+| Situation | Failure code | Retryable | Notes |
+| --- | --- | --- | --- |
+| Connection never established (before launch POST) | `UPSTREAM_TRANSIENT` | yes | Bounded internal retries on pre-launch reads |
+| Launch response lost (POST may have been sent) | `OUTCOME_UNKNOWN` | no | Reconciled via the correlation token; never blindly re-POSTed |
+| Launch HTTP 401 / 403 / 404 | `AUTHENTICATION_FAILED` / `AUTHORIZATION_FAILED` / `NOT_FOUND` | no | |
+| Other launch rejection (incl. 500, and 429/502/503/504 with a received response) | `REMOTE_REJECTED` | no | A received status proves the launch did not happen |
+| Missing/misconfigured integration endpoint, TLS settings, or credential | `POLICY_DENIED` | no | Endpoint validated before credential access |
+| Invalid input (e.g. reserved `extra_vars` key, bad label names) | `INVALID_INPUT` | no | |
+| Deadline reached, parent still non-terminal | `TIMEOUT` | no | Carries the known workflow job id |
+| Poll contact lost (5 consecutive errors, or errors to the deadline) | `OUTCOME_UNKNOWN` | no | "Launched but lost contact"; carries the known job id |
+| Parent reaches `failed`/`error`/`canceled` | — (result, not failure) | — | Returned as the failed branch of the result union; AO maps `status == "failed"` to node failure |
+
+A parent that reaches a failure status is a **completed observation**: the step
+does not fail the SDK invocation, it returns the failed result branch with the
+preserved fields (see [COMPATIBILITY.md](COMPATIBILITY.md) §3).
+
+## Cancellation behavior
+
+On cancellation: if no workflow job id is known, the step reports `CANCELLED`
+without contacting AAP. Once a job id is known, the step makes a best-effort
+`POST .../workflow_jobs/{id}/cancel/` and then reports `CANCELLED`. The
+outcome says a cancel was **requested** — it does not claim the workflow or
+its child jobs have stopped, and a failed cancel request does not change the
+outcome. Step workload cleanup does not establish the workflow's terminal
+state; AAP owns the workflow and its children.
 
 ## Build
 

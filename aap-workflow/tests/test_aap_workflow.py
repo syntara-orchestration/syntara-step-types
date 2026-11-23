@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from threading import Event, Thread
 
 import httpx
@@ -39,7 +40,7 @@ _VALID_RUNTIME_CONTEXT = {
 
 
 def _credential_context(document: dict, runtime_context: dict | None = None) -> ExecutionContext:
-    """Build an ExecutionContext whose aap-credential resolves to ``document``."""
+    """Build an ExecutionContext whose syntara.aap.credential resolves to ``document``."""
     provider: CallbackCredentialProvider
 
     def mock_callback(request: container_pb2.CredentialRequest) -> None:
@@ -121,14 +122,15 @@ class TestAapWorkflowOutput:
         assert model.workflow_job_id == 7
         assert model.error is None
 
-    def test_failed_result_requires_error(self) -> None:
-        with pytest.raises(ValueError, match="failed result requires error"):
-            AapWorkflowOutput(status="failed", workflow_job_id=7)
+    def test_failed_result_requires_error_and_status(self) -> None:
+        with pytest.raises(ValueError, match="failed result requires"):
+            AapWorkflowOutput(status="failed", workflow_job_id=7, workflow_job_status="failed")
 
-    def test_failed_result_allows_null_fields(self) -> None:
-        model = AapWorkflowOutput(status="failed", error="boom")
-        assert model.workflow_job_id is None
-        assert model.workflow_job_status is None
+    def test_failed_result_allows_null_optional_fields(self) -> None:
+        model = AapWorkflowOutput(
+            status="failed", error="boom", workflow_job_id=7, workflow_job_status="failed"
+        )
+        assert model.workflow_job_url is None
         assert model.artifacts == {}
 
 
@@ -181,7 +183,9 @@ class TestBoundResultSize:
         assert len(marker) == 1  # only the largest key needed dropping
 
     def test_result_over_limit_without_artifacts_is_terminal(self) -> None:
-        output = AapWorkflowOutput(status="failed", error="x" * 2_000_000)
+        output = AapWorkflowOutput(
+            status="failed", error="x" * 2_000_000, workflow_job_id=7, workflow_job_status="failed"
+        )
         with pytest.raises(ContainerInvocationError) as exc_info:
             bound_result_size(output)
         assert exc_info.value.code == FailureCode.POLICY_DENIED
@@ -330,3 +334,40 @@ class TestAapWorkflowStepRun:
                 step.run(AapWorkflowInput(workflow_job_template_id=42), context)
         for record in caplog.records:
             assert token not in record.getMessage()
+
+
+class TestSerializedResultMatchesManifest:
+    """The runtime validates model_dump output against the manifest union."""
+
+    @pytest.fixture(scope="class")
+    def output_schema(self) -> dict:
+        import yaml
+
+        manifest = yaml.safe_load(
+            (Path(__file__).resolve().parents[1] / "manifest.yaml").read_text()
+        )
+        return manifest["spec"]["output"]["value"]
+
+    def test_completed_dump_validates(self, output_schema: dict) -> None:
+        from jsonschema import Draft202012Validator
+
+        output = AapWorkflowOutput(
+            status="completed",
+            workflow_job_id=7,
+            created="c",
+            started="s",
+            finished="f",
+        )
+        dumped = output.model_dump(mode="json")
+        assert "error" not in dumped  # nulls are omitted
+        Draft202012Validator(output_schema).validate(dumped)
+
+    def test_failed_dump_validates(self, output_schema: dict) -> None:
+        from jsonschema import Draft202012Validator
+
+        output = AapWorkflowOutput(
+            status="failed", error="boom", workflow_job_id=8, workflow_job_status="failed"
+        )
+        dumped = output.model_dump(mode="json")
+        assert "created" not in dumped
+        Draft202012Validator(output_schema).validate(dumped)

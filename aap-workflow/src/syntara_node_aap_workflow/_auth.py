@@ -8,7 +8,7 @@ integration and credential and supplies them through the SDK runtime:
 - ``runtime_context["aapEndpoint"]`` — HTTPS AAP gateway base URL
 - ``runtime_context["aapVerifySsl"]`` — TLS verification flag (default true)
 - ``runtime_context["aapCaCertificate"]`` — optional PEM-encoded CA certificate
-- the declared ``aap-credential`` credential document (token or basic auth)
+- the declared ``syntara.aap.credential`` credential document (token or basic auth)
 
 Logging policy (plan Step 2, input to the AAP-98909 Product Security review):
 never log tokens, ``extra_vars``, launch bodies, or AAP response bodies — only
@@ -27,8 +27,9 @@ from syntara_plugin.runtime import ContainerInvocationError, FailureCode
 
 logger = logging.getLogger(__name__)
 
-# Logical credential name declared by this step's manifest credential targets.
-AAP_CREDENTIAL_NAME = "aap-credential"
+# Logical credential name: the integration's credentialTypes entry (recipe
+# spec.id), which is what the SDK runtime restricts credential requests to.
+AAP_CREDENTIAL_NAME = "syntara.aap.credential"
 
 # Runtime-context keys supplied by the AO OpenShift integration (AAP-98873/98908).
 AAP_ENDPOINT_CONTEXT_KEY = "aapEndpoint"
