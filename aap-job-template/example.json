@@ -1,0 +1,7 @@
+{
+  "job_template_id": 42,
+  "extra_vars": {
+    "environment": "staging"
+  },
+  "timeout_seconds": 3600
+}

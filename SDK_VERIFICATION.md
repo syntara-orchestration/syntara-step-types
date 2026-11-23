@@ -2,9 +2,10 @@
 
 The step workload images install `syntara-plugin-contracts`, which provides the
 runtime APIs used by the step implementations and their `ContainerService` entrypoints.
-The shared `script-runtime` and `http-request` package metadata declare contracts as
-direct runtime dependencies. The Python and Bash workload images package that shared
-runtime with their own manifests and pin contracts through `CONTRACTS_VERSION`.
+The shared `script-runtime`, `http-request`, and `aap-job-template` package metadata
+declare contracts as direct runtime dependencies. The Python and Bash workload
+images package that shared runtime with their own manifests and pin contracts
+through `CONTRACTS_VERSION`.
 
 The repository also uses `syntara-plugin-sdk` in its development dependency group.
 Tests use its plugin settings and compilation APIs (`load_settings`, `BuildRequest`,

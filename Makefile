@@ -1,6 +1,6 @@
-NODES := http-request script-python script-bash
-SDK_PLUGINS := http-request script-python script-bash
-PYTHON_PACKAGES := http-request script-runtime
+NODES := http-request script-python script-bash aap-job-template
+SDK_PLUGINS := http-request script-python script-bash aap-job-template
+PYTHON_PACKAGES := http-request aap-job-template script-runtime
 CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= dev
@@ -68,7 +68,7 @@ check: lint typecheck test-unit
 .PHONY: sdk-plugin-check
 sdk-plugin-check:
 	@case "$(PLUGIN)" in \
-		http-request|script-python|script-bash) ;; \
+		http-request|script-python|script-bash|aap-job-template) ;; \
 		*) echo 'Set PLUGIN to one of: $(SDK_PLUGINS)'; exit 2 ;; \
 	esac
 
@@ -82,6 +82,7 @@ sdk-plugin-run: sdk-plugin-check
 		http-request) filter='.ok == true and .output.status_code == 200' ;; \
 		script-python) filter='.ok == true and .output.return_code == 0 and .output.stdout_json.result == 42' ;; \
 		script-bash) filter='.ok == true and .output.return_code == 0 and .output.stdout == "hello from bash\n"' ;; \
+		aap-job-template) echo "AAP job template run needs a live Controller and credential."; exit 2 ;; \
 	esac; \
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin run --mode source --input-file example.json --json | jq -e "$$filter"
 

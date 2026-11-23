@@ -1,0 +1,18 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: aap-job-template
+  version: 0.1.0
+  displayName: AAP Job Template
+  description: Launches an Ansible Automation Platform job template and waits for completion.
+spec:
+  documentation:
+    path: README.md
+  workloads:
+    aap-job-template:
+      image: aap-job-template-runner
+  targets:
+    - manifest.yaml
+    - src/syntara_node_aap_job_template/integration.yaml
+    - src/syntara_node_aap_job_template/aap-credential.yaml
