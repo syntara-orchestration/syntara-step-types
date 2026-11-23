@@ -54,7 +54,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-aap-workflow-early-access
+    serviceAccountName: build-pipeline-ao-aap-workflow-early-access
   workspaces:
     - name: git-auth
       secret:
