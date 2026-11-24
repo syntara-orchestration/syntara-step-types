@@ -89,7 +89,7 @@ Requirements:
    identity, see [`runtime.md`](runtime.md)). The static identity
    (`namespace.plugin.step`) is not that revision.
 7. Pin `syntara-plugin-contracts` to the same reviewed version as EP
-   (joint pin: **`0.1.0a5`**)
+   (joint pin: **`0.1.0a6`**)
 
 Copy an existing plugin (`script-python` or `http-request`) rather than
 scaffolding from scratch unless the SDK `syntara-plugin init` path matches

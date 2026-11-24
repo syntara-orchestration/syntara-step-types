@@ -10,20 +10,18 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "pull_request" && target_branch == "devel" &&
+      event == "pull_request" && target_branch == "early-access" &&
       files.all.exists(x,
-        x.startsWith("script-python/") ||
-        x.startsWith("script-runtime/") ||
-        x == "http-request/pyproject.toml" ||
+        x.startsWith("http-request/") ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-python-rhel9-devel-pull-request.yaml".pathChanged())
+        ".tekton/ao-http-request-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ao-python-devel
+    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
+    appstudio.openshift.io/component: ao-http-request-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: ao-python-devel-on-pull-request
+  name: ao-http-request-early-access-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -32,11 +30,11 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:on-pr-{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-http-request-rhel9:on-pr-{{revision}}
     - name: image-expires-after
       value: 5d
     - name: dockerfile
-      value: script-python/Containerfile
+      value: http-request/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -47,8 +45,6 @@ spec:
         - linux-c4xlarge/arm64
     - name: hermetic
       value: 'false'
-    - name: prefetch-input
-      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"]}]'
   pipelineRef:
     params:
       - name: name
@@ -61,7 +57,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-python-rhel9-devel
+    serviceAccountName: build-pipeline-ao-http-request-early-access
   workspaces:
     - name: git-auth
       secret:

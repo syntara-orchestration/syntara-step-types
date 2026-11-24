@@ -294,7 +294,7 @@ output_freeze:
 1. **Breaking change:** renaming/removing a frozen output field requires an approved alias period; saved `${node.field}` strings are not schema-versioned at save time.  
 2. **Thin projection:** expression namespaces expose business fields and the interim AO `status` / `error` envelope. Do not expose `statusCode`, `statusMessage`, or `errorResult` from `StandardOutputWrapper` as template fields.  
 3. **Health and Execute (target state):** the workload must advertise the exact compiled revision AO submits. The static step identity is not that revision, and `*` is not an Execute match. `script.v1` is not a compiled revision. Until the images serve the resolved-revision path, Health and Execute accept the static identity (see [`runtime.md`](runtime.md)).  
-4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin: `0.1.0a6`** (bumped from `0.1.0a5`; the a5→a6 delta is container-runtime execution-budget enforcement, backwards compatible).
+4. **Contracts pin:** EP worker and step images must share a reviewed `syntara-plugin-contracts` version. **Current joint pin: `0.1.0a6`.**
 5. **No silent fallback:** after an ambiguous EP submit, do not fall back to in-process execution (current AO isolation rule).  
 6. **EP `output_config`:** key selection only until AO evaluates template expressions; AO remains source of truth for `${…}` expansion.
 

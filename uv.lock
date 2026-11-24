@@ -835,7 +835,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" },
 ]
 
 [[package]]
@@ -850,7 +850,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" },
 ]
 
 [[package]]
@@ -906,7 +906,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a5" }]
+requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -918,7 +918,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = "==0.14.3" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a5" },
+    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a6" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
