@@ -14,7 +14,7 @@ metadata:
         x.startsWith("aap-job-template/") ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-aap-job-template-rhel9-early-access-push.yaml".pathChanged())
+        ".tekton/ao-aap-job-template-early-access-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
@@ -54,7 +54,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-automation-orchestrator-step-types-aap-job-template-early-access
+    serviceAccountName: build-pipeline-ao-aap-job-template-early-access
   workspaces:
     - name: git-auth
       secret:
