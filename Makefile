@@ -9,6 +9,9 @@ PLUGIN ?=
 SDK_WORKLOAD_TAG ?= ci-$(shell date +%s)
 UV ?= uv
 PYTEST_ARGS ?=
+PYBUILD_DEPS_VERSION ?= 0.6.1
+RPM_LOCKFILE_IMAGE ?= localhost/rpm-lockfile-prototype:latest
+RPM_LOCKFILE_VERSION ?= v0.30.1
 
 .PHONY: install
 install:
@@ -21,6 +24,22 @@ lint:
 
 format:
 	$(UV) run --frozen ruff format .
+
+.PHONY: sync-script-runtime-build-requirements
+sync-script-runtime-build-requirements:
+	uvx --python 3.12 --from pybuild-deps==$(PYBUILD_DEPS_VERSION) pybuild-deps compile \
+		--generate-hashes -o script-runtime/requirements-build.txt \
+		script-runtime/requirements-konflux.txt
+
+.PHONY: sync-rpms-lock-yaml
+sync-rpms-lock-yaml:
+	@if ! $(CONTAINER_ENGINE) image inspect "$(RPM_LOCKFILE_IMAGE)" >/dev/null 2>&1; then \
+		curl -fsSL "https://raw.githubusercontent.com/konflux-ci/rpm-lockfile-prototype/$(RPM_LOCKFILE_VERSION)/Containerfile" \
+			| $(CONTAINER_ENGINE) build -t "$(RPM_LOCKFILE_IMAGE)" \
+				--build-arg "GIT_REF=tags/$(RPM_LOCKFILE_VERSION)" - ; \
+	fi
+	$(CONTAINER_ENGINE) run --rm -v "$(CURDIR):/work" -w /work \
+		"$(RPM_LOCKFILE_IMAGE)" --outfile=/work/rpms.lock.yaml rpms.in.yaml
 
 .PHONY: typecheck
 typecheck:

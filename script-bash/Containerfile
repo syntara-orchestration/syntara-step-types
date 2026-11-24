@@ -5,14 +5,18 @@ WORKDIR /app
 
 COPY script-runtime/requirements-konflux.txt /app/requirements-konflux.txt
 
-# Konflux prefetches the locked wheels before the hermetic build. Local image
-# tests use the public Python package index when the Hermeto cache is absent.
-RUN python3.12 -m venv /app/.venv \
+# Konflux prefetches locked source distributions and build requirements.
+# Local image tests use public PyPI wheels when the Hermeto cache is absent.
+RUN if [ -n "${PIP_FIND_LINKS:-}" ]; then \
+        yum install -y rust-toolset gcc-c++ make \
+            && yum clean all; \
+    fi \
+    && python3.12 -m venv /app/.venv \
     && if [ -n "${PIP_FIND_LINKS:-}" ]; then \
         /app/.venv/bin/python -m pip install \
             --no-index \
             --find-links "${PIP_FIND_LINKS}" \
-            --only-binary=:all: \
+            --no-binary=:all: \
             --require-hashes \
             --no-deps \
             --no-cache-dir \
