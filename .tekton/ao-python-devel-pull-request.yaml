@@ -40,15 +40,16 @@ spec:
     - name: path-context
       value: .
     - name: build-args
-      value: []
+      value:
+        - BUILDER_IMAGE=registry.redhat.io/ansible-automation-platform/uv-builder-rhel9:latest@sha256:bdd64fcb4597cfb665c15c4b4841ded098baa26dce1f544b4dbd17a575b8984a
     - name: build-platforms
       value:
         - linux-c4xlarge/amd64
         - linux-c4xlarge/arm64
     - name: hermetic
-      value: 'false'
+      value: 'true'
     - name: prefetch-input
-      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"]}]'
+      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"], "binary": {"packages": ":all:", "arch": "x86_64,aarch64", "os": "linux", "py_version": 312}}]'
   pipelineRef:
     params:
       - name: name

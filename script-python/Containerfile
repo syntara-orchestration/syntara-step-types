@@ -1,38 +1,40 @@
-FROM registry.access.redhat.com/ubi9/python-312:1 AS base
+ARG BUILDER_IMAGE=registry.redhat.io/ansible-automation-platform/uv-builder-rhel9:latest@sha256:bdd64fcb4597cfb665c15c4b4841ded098baa26dce1f544b4dbd17a575b8984a
+
+FROM ${BUILDER_IMAGE} AS builder
+
+USER 0
 WORKDIR /app
 
-FROM base AS builder
-USER 0
-COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /bin/
 COPY pyproject.toml uv.lock /app/
 COPY http-request/pyproject.toml /app/http-request/pyproject.toml
 COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
-# Optional contracts override; empty by default, which keeps the uv.lock pin.
-ARG CONTRACTS_VERSION=
 COPY script-python/manifest.yaml /app/manifest.yaml
-RUN uv sync --frozen --no-dev --no-build --no-install-workspace \
-    --package syntara-node-script-runtime \
-    && if [ -n "$CONTRACTS_VERSION" ]; then \
-        uv pip install --python /app/.venv/bin/python \
-          "syntara-plugin-contracts==${CONTRACTS_VERSION}"; \
-    fi
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:2d4c4551af6831dcd26bbf86108c4385de5183ec8fe6b5868f6f9640fe47f4ed
+# Konflux prefetches the locked Python wheels before the hermetic build.
+RUN test -n "${PIP_FIND_LINKS:-}" \
+    && UV_FIND_LINKS="${PIP_FIND_LINKS}" uv sync \
+        --frozen \
+        --no-dev \
+        --no-build \
+        --no-install-workspace \
+        --package syntara-node-script-runtime \
+        --offline \
+        --no-index \
+        --find-links "${PIP_FIND_LINKS}"
+
+FROM registry.access.redhat.com/ubi9/python-312-minimal:1 AS runtime
 
 USER 0
-
-RUN microdnf --disableplugin=subscription-manager install --setopt=install_weak_deps=0 --nodocs -y python3.12 python3.12-pip python3.12-cffi \
-    && microdnf clean all
-
-RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
-
 WORKDIR /app
+
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/manifest.yaml /app/manifest.yaml
 COPY script-runtime/src /app/src
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src"
+
 EXPOSE 50051
 USER 65532:65532
 ENTRYPOINT ["python3.12", "-m", "syntara_node_script.python"]
