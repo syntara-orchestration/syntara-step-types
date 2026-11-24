@@ -1,0 +1,27 @@
+apiVersion: syntara.io/v1alpha1
+kind: IntegrationType
+metadata:
+  name: aap
+  displayName: Ansible Automation Platform
+  description: Ansible Automation Platform Controller connection for the job template step.
+spec:
+  id: ansible_automation_platform
+  endpointKinds: [https]
+  credentialTypes: [syntara.aap.auth]
+  configuration:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      required: [baseUrl]
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+          pattern: "^https://"
+        verifySSL:
+          type: boolean
+          default: true
+        caCertificate:
+          type: string
+          description: Optional PEM CA certificate used to verify the Controller TLS certificate.

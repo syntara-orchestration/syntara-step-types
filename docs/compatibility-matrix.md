@@ -1,8 +1,7 @@
 # AO ↔ SDK ↔ EP compatibility matrix
 
 > First deliverable of the GA step-types migration pathway.  
-> Script rows are **filled** against AO `devel` + step-types `devel`.  
-> HTTP / agentic / AAP rows are **stubs** (AO contract frozen; EP cutover not done).  
+> Script rows are **filled** against AO `devel` + step-types `devel`. HTTP / agentic rows are **stubs**. AAP has a runnable container step; AO dispatch cutover is pending.
 > Schema dialect: JSON Schema **2020-12** (SDK and AO). The execution result stays a `StandardOutputWrapper`. AO expression namespaces use an interim projection of that wrapper (see Envelope rule). Do not publish `statusCode`, `statusMessage`, or `errorResult` as template fields.
 
 ## How to read this matrix
@@ -201,21 +200,48 @@ output_freeze:
 
 ---
 
-## AAP job template (stub)
+## AAP job template
 
 | Field | Value |
 |---|---|
 | AO node type | `aap_job_template` |
 | AO activity today | launch/poll Controller in-process |
-| Plugin on step-types `devel` | **None** (legacy on `feat/aap-steps*`) |
-| EP status | Deferred; may stay hybrid (container talks to AAP) |
-| Target identity / image | TBD when ported to Plugin/Action |
+| Plugin | `syntara` / `aap-job-template` / Action `aap-job-template` |
+| **Step identity** | `syntara.aap-job-template.aap-job-template` |
+| Local image | `localhost/syntara-node-aap-job-template:<tag>` |
+| Integration / credential | `ansible_automation_platform` / `syntara.aap.auth` |
+| Runtime context | Host supplies selected `aapEndpoint`, `aapVerifySSL`, and optional `aapCACertificate` |
+| EP status | Plugin image is runnable; AO dispatch cutover remains separate |
 
 **Output freeze (AO)**
 
-| Field |
-|---|
-| `job_id`, `job_url`, `job_status`, `artifacts`, `created`, `started`, `finished` |
+| Field | Type |
+|---|---|
+| `job_id` | integer |
+| `job_url` | string |
+| `job_status` | string |
+| `artifacts` | object |
+| `created`, `started`, `finished` | string |
+
+The container launches and polls Controller directly. It returns completed
+business output for `successful` jobs and fails the step for other terminal job
+statuses. AAP credentials are exchanged over the SDK credential callback.
+
+<!-- Machine-readable output freeze. -->
+```yaml
+output_freeze:
+  plugin: aap-job-template
+  required: [job_id, job_url, job_status, artifacts, created, started, finished]
+  optional: []
+  types:
+    job_id: integer
+    job_url: string
+    job_status: string
+    artifacts: object
+    created: string
+    started: string
+    finished: string
+```
 
 ---
 

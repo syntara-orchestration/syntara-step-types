@@ -8,7 +8,8 @@
 This document is the **reusable checklist** for moving an existing Automation
 Orchestrator (AO) executor onto a step-types container image that Execution
 Plane (EP) can run. It does **not** itself port agent/AAP steps; those follow
-the same steps when ready.
+the same steps when ready. The AAP job-template container port now lives in this
+repo; AO dispatch wiring remains a separate cutover.
 
 ## Ownership cheat-sheet
 
@@ -217,7 +218,8 @@ are **not** sufficient acceptance for a product cutover.
 | Script (python/bash) | Yes | Yes (golden path) | Reference implementation |
 | HTTP request | Yes | Not yet (in-process AO) | Next cutover — clone script spine |
 | Agentic | No | No (Agent Orchestrator async) | Special-case checklist later |
-| AAP job / workflow | No | No (Controller poll) | Hybrid possible; port Plugin/Action first |
+| AAP job template | Yes | No (Controller poll remains in AO) | Container port complete; wire host dispatch |
+| AAP workflow job template | No | No (Controller poll) | Hybrid possible; port Plugin/Action first |
 
 ## Related links
 

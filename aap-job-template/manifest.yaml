@@ -1,0 +1,119 @@
+apiVersion: syntara.io/v1alpha1
+kind: Action
+metadata:
+  name: aap-job-template
+  displayName: AAP Job Template
+  description: Launches an Ansible Automation Platform job template and waits for completion.
+spec:
+  runtime:
+    kind: custom-runner
+    entryPoint: "syntara_node_aap_job_template:AAPJobTemplateStep"
+  integrationType: ansible_automation_platform
+  input:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      anyOf:
+        - required: [job_template_id]
+        - required: [job_template_name, organization_name]
+      properties:
+        job_template_id:
+          type: integer
+          minimum: 1
+          description: AAP job template ID; takes precedence over job_template_name.
+        job_template_name:
+          type: string
+          description: Job template name, resolved within organization_name.
+        organizationId:
+          type: integer
+          minimum: 1
+          description: AAP organization ID, used for label resolution.
+        organization_name:
+          type: string
+          description: Required for name-based template, inventory, instance group, or label lookup.
+        inventory_id:
+          type: integer
+          minimum: 1
+        inventory_name:
+          type: string
+        extra_vars:
+          type: object
+          additionalProperties: true
+          description: Extra variables passed to the job template.
+        limit:
+          type: string
+        tags:
+          type: string
+        skip_tags:
+          type: string
+        labels:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+        job_credentials:
+          type: array
+          items:
+            type: integer
+        credentialNames:
+          type: array
+          items:
+            type: string
+        verbosity:
+          type: integer
+          minimum: 0
+          maximum: 5
+          default: 0
+        job_type:
+          type: string
+          enum: [run, check]
+        forks:
+          type: integer
+          minimum: 0
+        job_slicing:
+          type: integer
+          minimum: 1
+        diff_mode:
+          type: boolean
+        execution_environment:
+          type: string
+          description: Reserved for an AAP prompt-on-launch execution environment override.
+        instance_group_id:
+          type: integer
+          minimum: 1
+        instance_group_name:
+          type: string
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+          default: 3600
+  output:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: false
+      required: [job_id, job_url, job_status, artifacts, created, started, finished]
+      properties:
+        job_id:
+          type: integer
+        job_url:
+          type: string
+        job_status:
+          type: string
+          description: AAP terminal job status; successful jobs return completed step results.
+        artifacts:
+          type: object
+          additionalProperties: true
+        created:
+          type: string
+        started:
+          type: string
+        finished:
+          type: string
+  error:
+    kind: inline
+    value:
+      type: object
+      additionalProperties: true

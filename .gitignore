@@ -7,6 +7,7 @@ __pycache__/
 /.test-artifacts/
 /test-results/
 /http-request/dist/
+/aap-job-template/dist/
 /script-python/dist/
 /script-bash/dist/
 .coverage

@@ -35,9 +35,9 @@ make test-all
 | Target | Container engine required? | What it does |
 | --- | --- | --- |
 | `make test-unit` | No | Runs step implementation and contract tests. |
-| `make test-build` | Yes | Uses `syntara-plugin build` to create and verify SDK archives for all three workloads. |
-| `make test-integration` | Yes | Loads those archives and tests the normal image entrypoints through gRPC. Requires a current successful `make test-build`. |
-| `make test-all` | Yes | Runs unit, build, and integration stages in order, building each workload once. |
+| `make test-build` | Yes | Uses `syntara-plugin build` to create and verify SDK archives for the three workloads covered by the shared integration fixture. |
+| `make test-integration` | Yes | Loads those archives and tests their normal image entrypoints through gRPC. Requires a current successful `make test-build`. |
+| `make test-all` | Yes | Runs unit, build, and integration stages in order for the shared integration fixture. |
 
 `make test-clean` removes only test artifacts and reports. The integration stage
 checks that the SDK build artifacts are present, current, and match the connected
@@ -80,6 +80,7 @@ runtime.
 | HTTP request | `http-request/` | `syntara-node-http-request` | — |
 | Python script | `script-python/` | `syntara-node-script-python` | `ao-python-rhel9` |
 | Bash script | `script-bash/` | `syntara-node-script-bash` | `ao-bash-rhel9` |
+| AAP job template | `aap-job-template/` | `syntara-node-aap-job-template` | — |
 
 The `make node-image` targets call `syntara-plugin build` to build the plugin,
 runtime binding, and workload image archives. They then load the workload archive
@@ -94,7 +95,13 @@ repository root:
 ```bash
 make node-images CONTAINER_ENGINE=podman TAG=local-test
 make node-image NODE=script-python CONTAINER_ENGINE=podman TAG=local-test
+make node-image NODE=aap-job-template CONTAINER_ENGINE=podman TAG=local-test
 ```
+
+The AAP job template step needs a host-supplied `aapEndpoint` runtime context
+value and an `syntara.aap.auth` credential. `make sdk-plugin-run` cannot execute
+it without a configured AAP Controller; use `make sdk-plugin-validate` to check
+its plugin metadata.
 
 The SDK uses Podman to create workload archives. `CONTAINER_ENGINE` selects where
 Make loads and runs a release image after the SDK build. To push images, set
@@ -131,5 +138,6 @@ The product-image E2E proof is
 
 ## Provenance
 
-Extracted from `syntara-orchestration/syntara` (`backend/nodes`) and refactored to use
-the `syntara-plugin-contracts` runtime. Original source is Apache 2.0 licensed.
+Extracted from `syntara-orchestration/syntara` (`backend/nodes` and the AAP job
+template Temporal activity) and refactored to use the `syntara-plugin-contracts`
+runtime. Original source is Apache 2.0 licensed.

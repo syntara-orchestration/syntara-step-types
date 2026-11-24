@@ -20,6 +20,12 @@ does not match the request origin. Hosts that do not yet supply `httpEndpoint`
 cannot use the HTTP bearer credential path. Large integers and null values are
 preserved by the JSON encoding.
 
+The AAP job template step reads `aapEndpoint`, `aapVerifySSL`, and optional
+`aapCACertificate` from trusted runtime context. The endpoint must be the
+selected integration's HTTPS base URL. Authentication is read through the
+declared `syntara.aap.auth` credential recipe; tokens and passwords stay out of
+workflow inputs and runtime context.
+
 Credentials are exchanged on the Execute stream; the request itself carries none
 (the pre-a4 `credential_file_paths_json` field is reserved). When a step declares
 credentials, the server sends a `credential_request` naming the declared recipe,
