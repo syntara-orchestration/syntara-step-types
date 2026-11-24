@@ -1,26 +1,32 @@
-ARG BUILDER_IMAGE=registry.redhat.io/ansible-automation-platform/uv-builder-rhel9:latest@sha256:bdd64fcb4597cfb665c15c4b4841ded098baa26dce1f544b4dbd17a575b8984a
-
-FROM ${BUILDER_IMAGE} AS builder
+FROM registry.access.redhat.com/ubi9/python-312:1 AS builder
 
 USER 0
 WORKDIR /app
 
-COPY pyproject.toml uv.lock /app/
-COPY http-request/pyproject.toml /app/http-request/pyproject.toml
-COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
-COPY script-bash/manifest.yaml /app/manifest.yaml
+COPY script-runtime/requirements-konflux.txt /app/requirements-konflux.txt
 
-# Konflux prefetches the locked Python wheels before the hermetic build.
-RUN test -n "${PIP_FIND_LINKS:-}" \
-    && UV_FIND_LINKS="${PIP_FIND_LINKS}" uv sync \
-        --frozen \
-        --no-dev \
-        --no-build \
-        --no-install-workspace \
-        --package syntara-node-script-runtime \
-        --offline \
-        --no-index \
-        --find-links "${PIP_FIND_LINKS}"
+# Konflux prefetches the locked wheels before the hermetic build. Local image
+# tests use the public Python package index when the Hermeto cache is absent.
+RUN python3.12 -m venv /app/.venv \
+    && if [ -n "${PIP_FIND_LINKS:-}" ]; then \
+        /app/.venv/bin/python -m pip install \
+            --no-index \
+            --find-links "${PIP_FIND_LINKS}" \
+            --only-binary=:all: \
+            --require-hashes \
+            --no-deps \
+            --no-cache-dir \
+            --disable-pip-version-check \
+            --requirement /app/requirements-konflux.txt; \
+    else \
+        /app/.venv/bin/python -m pip install \
+            --only-binary=:all: \
+            --require-hashes \
+            --no-deps \
+            --no-cache-dir \
+            --disable-pip-version-check \
+            --requirement /app/requirements-konflux.txt; \
+    fi
 
 FROM registry.access.redhat.com/ubi9/python-312-minimal:1 AS runtime
 
@@ -29,7 +35,7 @@ WORKDIR /app
 
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/manifest.yaml /app/manifest.yaml
+COPY script-bash/manifest.yaml /app/manifest.yaml
 COPY script-runtime/src /app/src
 
 ENV PATH="/app/.venv/bin:$PATH" \
