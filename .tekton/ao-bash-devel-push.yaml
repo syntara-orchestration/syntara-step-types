@@ -11,18 +11,20 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: >-
       event == "push" && target_branch == "devel" &&
       files.all.exists(x,
-        x.startsWith("script-python/") ||
+        x == "rpms.in.yaml" ||
+        x == "rpms.lock.yaml" ||
+        x.startsWith("script-bash/") ||
         x.startsWith("script-runtime/") ||
         x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-python-rhel9-devel-push.yaml".pathChanged())
+        ".tekton/ao-bash-devel-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ao-python-devel
+    appstudio.openshift.io/component: ao-bash-devel
     pipelines.appstudio.openshift.io/type: build
-  name: ao-python-devel-on-push
+  name: ao-bash-devel-on-push
   namespace: nexus-tenant
 spec:
   params:
@@ -31,9 +33,9 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-bash-rhel9:{{revision}}
     - name: dockerfile
-      value: script-python/Containerfile
+      value: script-bash/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -43,9 +45,9 @@ spec:
         - linux-c4xlarge/amd64
         - linux-c4xlarge/arm64
     - name: hermetic
-      value: 'false'
+      value: 'true'
     - name: prefetch-input
-      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"]}]'
+      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"], "requirements_build_files": ["requirements-build.txt"]}, {"type": "rpm", "path": "."}]'
   pipelineRef:
     params:
       - name: name
@@ -58,7 +60,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-python-rhel9-devel
+    serviceAccountName: build-pipeline-ao-bash-devel
   workspaces:
     - name: git-auth
       secret:

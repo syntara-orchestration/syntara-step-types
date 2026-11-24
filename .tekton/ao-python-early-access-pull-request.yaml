@@ -5,22 +5,27 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: '{{source_url}}?rev={{revision}}'
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: 'true'
     pipelinesascode.tekton.dev/max-keep-runs: '3'
     pipelinesascode.tekton.dev/on-cel-expression: >-
-      event == "push" && target_branch == "devel" &&
+      event == "pull_request" && target_branch == "early-access" &&
       files.all.exists(x,
-        x.startsWith("http-request/") ||
+        x == "rpms.in.yaml" ||
+        x == "rpms.lock.yaml" ||
+        x.startsWith("script-python/") ||
+        x.startsWith("script-runtime/") ||
+        x == "http-request/pyproject.toml" ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
-        ".tekton/ao-http-request-rhel9-devel-push.yaml".pathChanged())
+        ".tekton/ao-python-early-access-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: ansible-automation-orchestrator-devel
-    appstudio.openshift.io/component: ao-http-request-devel
+    appstudio.openshift.io/application: ansible-automation-orchestrator-early-access
+    appstudio.openshift.io/component: ao-python-early-access
     pipelines.appstudio.openshift.io/type: build
-  name: ao-http-request-devel-on-push
+  name: ao-python-early-access-on-pull-request
   namespace: nexus-tenant
 spec:
   params:
@@ -29,9 +34,11 @@ spec:
     - name: revision
       value: '{{revision}}'
     - name: output-image
-      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-http-request-rhel9:{{revision}}
+      value: quay.io/redhat-user-workloads/nexus-tenant/ansible-automation-platform/ao-python-rhel9:on-pr-{{revision}}
+    - name: image-expires-after
+      value: 5d
     - name: dockerfile
-      value: http-request/Containerfile
+      value: script-python/Containerfile
     - name: path-context
       value: .
     - name: build-args
@@ -41,7 +48,9 @@ spec:
         - linux-c4xlarge/amd64
         - linux-c4xlarge/arm64
     - name: hermetic
-      value: 'false'
+      value: 'true'
+    - name: prefetch-input
+      value: '[{"type": "pip", "path": "script-runtime", "requirements_files": ["requirements-konflux.txt"], "requirements_build_files": ["requirements-build.txt"]}, {"type": "rpm", "path": "."}]'
   pipelineRef:
     params:
       - name: name
@@ -54,7 +63,7 @@ spec:
         value: quay-aap-ci-viewer
     resolver: bundles
   taskRunTemplate:
-    serviceAccountName: build-pipeline-ao-http-request-rhel9-devel
+    serviceAccountName: build-pipeline-ao-python-early-access
   workspaces:
     - name: git-auth
       secret:
