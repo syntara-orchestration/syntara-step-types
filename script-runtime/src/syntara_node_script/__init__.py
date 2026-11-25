@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from syntara_plugin.runtime import (
     ActionStep,
     ErrorCategory,
+    ErrorCode,
     ExecutionContext,
     FailureCode,
     StepFailure,
@@ -85,7 +86,7 @@ def _run_script[OutputT: ScriptOutput](
             1,
             "Server busy: too many concurrent executions",
             "Server busy: too many concurrent executions",
-            code=FailureCode.UPSTREAM_TRANSIENT.value,
+            code=ErrorCode.DEPENDENCY_FAILED.value,
             category=ErrorCategory.DEPENDENCY,
             retryable=True,
         )
@@ -106,7 +107,7 @@ def _run_script[OutputT: ScriptOutput](
             1,
             message,
             message,
-            code=FailureCode.REMOTE_REJECTED.value,
+            code=ErrorCode.BUSINESS_RULE_FAILED.value,
             category=ErrorCategory.BUSINESS,
             retryable=False,
         ) from exc
@@ -116,7 +117,7 @@ def _run_script[OutputT: ScriptOutput](
             1,
             message,
             message,
-            code=FailureCode.TIMEOUT.value,
+            code=ErrorCode.TIMEOUT_EXCEEDED.value,
             category=ErrorCategory.TIMEOUT,
             retryable=True,
         ) from exc

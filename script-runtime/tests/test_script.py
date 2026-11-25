@@ -2,7 +2,7 @@
 
 import pytest
 from syntara_node_script import BashScriptStep, PythonScriptStep, ScriptInput
-from syntara_plugin.runtime import ExecutionContext, FailureCode, StepFailure
+from syntara_plugin.runtime import ErrorCode, ExecutionContext, StepFailure
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_nonzero_exit_raises(bash_step: BashScriptStep, context: ExecutionContex
     inputs = ScriptInput(code="exit 3")
     with pytest.raises(StepFailure) as exc_info:
         bash_step.run(inputs, context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
+    assert exc_info.value.code == ErrorCode.BUSINESS_RULE_FAILED.value
     assert not exc_info.value.retryable
 
 
@@ -71,7 +71,7 @@ def test_bash_stderr_on_error(bash_step: BashScriptStep, context: ExecutionConte
     inputs = ScriptInput(code="echo oops >&2; exit 1")
     with pytest.raises(StepFailure) as exc_info:
         bash_step.run(inputs, context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
+    assert exc_info.value.code == ErrorCode.BUSINESS_RULE_FAILED.value
     assert "1" in exc_info.value.error_message
 
 

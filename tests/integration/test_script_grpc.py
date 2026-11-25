@@ -136,7 +136,7 @@ def test_script_failure_handling(
         if event.HasField("result"):
             assert event.result.status_code != 0
             error = json.loads(event.result.error_result_json)
-            assert error["code"] == "REMOTE_REJECTED"
+            assert error["code"] == "BUSINESS_RULE_FAILED"
             assert error["category"] == "business"
             assert not error["retryable"]
             return

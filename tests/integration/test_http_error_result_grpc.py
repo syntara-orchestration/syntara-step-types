@@ -15,8 +15,8 @@ pytestmark = pytest.mark.integration
 @pytest.mark.parametrize(
     ("path", "http_timeout", "expected_code", "expected_category"),
     [
-        ("timeout", 1, "TIMEOUT", "timeout"),
-        ("unavailable", 10, "UPSTREAM_TRANSIENT", "dependency"),
+        ("timeout", 1, "TIMEOUT_EXCEEDED", "timeout"),
+        ("unavailable", 10, "DEPENDENCY_FAILED", "dependency"),
     ],
 )
 def test_http_errors_are_serialized_in_result_event(

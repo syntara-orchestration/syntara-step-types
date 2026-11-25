@@ -3,7 +3,7 @@ WORKDIR /app
 
 FROM base AS builder
 USER 0
-ARG CONTRACTS_REV=ceb974ea4b27c6ecfee1fa14ba771f8ac65763ef
+ARG CONTRACTS_REV=3beee24d59c62b52b8df5a435a36022682173ab2
 ARG CONTRACTS_VERSION=0.1.0a7
 COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /bin/
 COPY pyproject.toml uv.lock /app/
