@@ -1,4 +1,4 @@
-# Build dependencies for the Python script components.
+# Build dependencies for the Python step components.
 # After changing this file or a builder Containerfile, run:
 #   make sync-rpms-lock-yaml
 packages:
