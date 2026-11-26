@@ -1,30 +1,50 @@
 FROM registry.access.redhat.com/ubi9/python-312:1 AS builder
+
 USER 0
 WORKDIR /app
+
 COPY http-request/requirements-konflux.txt /app/requirements-konflux.txt
 
-# Konflux supplies prefetched wheels; local builds may use the public index.
-RUN python3.12 -m venv /app/.venv \
-    && if [ -n "${PIP_FIND_LINKS:-}" ]; then \
-        export PIP_NO_INDEX=1; \
+# Konflux prefetches locked source distributions and build requirements.
+# Local image tests use public PyPI wheels when the Hermeto cache is absent.
+RUN if [ -n "${PIP_FIND_LINKS:-}" ]; then \
+        yum install -y rust-toolset gcc-c++ make \
+            && yum clean all; \
     fi \
-    && /app/.venv/bin/python -m pip install \
-        --only-binary=:all: \
-        --require-hashes \
-        --no-deps \
-        --no-cache-dir \
-        --disable-pip-version-check \
-        --requirement /app/requirements-konflux.txt
+    && python3.12 -m venv /app/.venv \
+    && if [ -n "${PIP_FIND_LINKS:-}" ]; then \
+        /app/.venv/bin/python -m pip install \
+            --no-index \
+            --find-links "${PIP_FIND_LINKS}" \
+            --no-binary=:all: \
+            --require-hashes \
+            --no-deps \
+            --no-cache-dir \
+            --disable-pip-version-check \
+            --requirement /app/requirements-konflux.txt; \
+    else \
+        /app/.venv/bin/python -m pip install \
+            --only-binary=:all: \
+            --require-hashes \
+            --no-deps \
+            --no-cache-dir \
+            --disable-pip-version-check \
+            --requirement /app/requirements-konflux.txt; \
+    fi
 
 FROM registry.access.redhat.com/ubi9/python-312-minimal:1 AS runtime
+
 USER 0
 WORKDIR /app
+
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /app/.venv /app/.venv
 COPY http-request/manifest.yaml /app/manifest.yaml
 COPY http-request/src /app/src
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src"
-USER 65532:65532
+
 EXPOSE 50051
+USER 65532:65532
 ENTRYPOINT ["python3.12", "-m", "syntara_node_http_request"]

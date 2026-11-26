@@ -14,6 +14,8 @@ metadata:
         x.startsWith("http-request/") ||
         x == "pyproject.toml" ||
         x == "uv.lock" ||
+        x == "rpms.in.yaml" ||
+        x == "rpms.lock.yaml" ||
         ".tekton/ao-http-request-devel-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
@@ -43,7 +45,7 @@ spec:
     - name: hermetic
       value: 'true'
     - name: prefetch-input
-      value: '[{"type": "pip", "path": "http-request", "requirements_files": ["requirements-konflux.txt"], "binary": {"packages": ":all:", "arch": "x86_64,aarch64", "os": "linux", "py_version": 312}}]'
+      value: '[{"type": "pip", "path": "http-request", "requirements_files": ["requirements-konflux.txt"], "requirements_build_files": ["requirements-build.txt"]}, {"type": "rpm", "path": "."}]'
   pipelineRef:
     params:
       - name: name

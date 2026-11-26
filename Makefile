@@ -151,3 +151,9 @@ push-node-images:
 push-node-image:
 	@case " $(NODES) " in *" $(NODE) "*) ;; *) echo 'Unknown NODE: $(NODE)'; exit 2;; esac
 	$(CONTAINER_ENGINE) push $(REGISTRY)/syntara-node-$(NODE):$(TAG)
+
+.PHONY: sync-http-build-requirements
+sync-http-build-requirements:
+	uvx --python 3.12 --from pybuild-deps==$(PYBUILD_DEPS_VERSION) pybuild-deps compile \
+		--generate-hashes -o http-request/requirements-build.txt \
+		http-request/requirements-konflux.txt
