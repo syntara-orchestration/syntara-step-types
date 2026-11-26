@@ -53,3 +53,21 @@ correctly.
 ```
 
 See [`docs/runtime.md`](../docs/runtime.md) for the gRPC ABI and deployment details.
+
+### Hermetic image builds
+
+Konflux prefetches the hashed runtime wheels in `requirements-konflux.txt` for
+Python 3.12 on amd64 and arm64 before building with networking disabled. The
+Containerfile uses Hermeto's `PIP_FIND_LINKS` and disables index access when that
+cache is present. Local builds without the cache use the public package index.
+The source and manifest are copied directly, so no package build backend is
+needed inside the image build.
+
+After changing runtime dependencies, regenerate the requirements from the root:
+
+```sh
+uv export --frozen --offline --package syntara-node-http-request --no-dev --no-emit-workspace --output-file http-request/requirements-konflux.txt
+```
+
+The contracts version comes from `uv.lock`; update the lock and regenerate this
+file to change it.
