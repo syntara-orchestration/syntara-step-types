@@ -201,7 +201,13 @@ async def _with_resolution_retries[T](operation: Callable[[], Awaitable[T]], wha
             if not exc.retryable:
                 raise
             last_error = exc
-        logger.info("%s failed transiently, retrying (attempt=%s)", what, attempt + 1)
+        logger.info(
+            "%s failed transiently, retrying (attempt=%s): %s: %s",
+            what,
+            attempt + 1,
+            type(last_error).__name__ if last_error else "unknown",
+            str(last_error)[:200] if last_error else "",
+        )
         await asyncio.sleep(RESOLUTION_BACKOFF_SECONDS)
     raise _failure(
         FailureCode.UPSTREAM_TRANSIENT,
