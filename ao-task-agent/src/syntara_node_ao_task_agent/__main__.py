@@ -1,4 +1,4 @@
-"""Serve the agent runtime Action over the SDK container protocol."""
+"""Serve the AO task agent Action over the SDK container protocol."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from syntara_plugin.runtime import (
 )
 from syntara_plugin.runtime.server import main as serve_runtime
 
-from syntara_node_agent_runtime import AgentRuntimeStep
+from syntara_node_ao_task_agent import AOTaskAgentStep
 
-STEP_IDENTITY = "syntara.agent-runtime.agent-runtime"
+STEP_IDENTITY = "syntara.ao-task-agent.ao-task-agent"
 
 
 def create_bindings(manifest_path: Path | None = None) -> StepBindings:
@@ -35,7 +35,7 @@ def create_bindings(manifest_path: Path | None = None) -> StepBindings:
         assets={},
         credential_targets=[],
     )
-    step = AgentRuntimeStep()
+    step = AOTaskAgentStep()
     bindings = StepBindings()
     bindings.bind(StepDescriptor.for_installed_step(step, installed), step)
     return bindings

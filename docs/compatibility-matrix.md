@@ -181,11 +181,11 @@ output_freeze:
 | Field | Value |
 |---|---|
 | AO node type | `agentic` |
-| AO activity today | Existing `InvocationExecutor`; workflow-backed invocations use `agent-runtime` when the default-off feature flag is enabled |
-| Plugin on this step-types branch | `agent-runtime` Action, `syntara.agent-runtime.agent-runtime` |
+| AO activity today | Existing `InvocationExecutor`; workflow-backed invocations use `ao-task-agent` when the default-off feature flag is enabled |
+| Plugin on this step-types branch | `ao-task-agent` Action, `syntara.ao-task-agent.ao-task-agent` |
 | Legacy remote | `feat/agent-step` (pre-Plugin/Action; not checklist baseline) |
 | EP status | One workload per invocation; model and MCP host operations are relayed through EP to AO |
-| Rollout | Requires the EP client release with `agent.operation`, a published Action image, and `APP_AGENT_RUNTIME_ENABLED=true` |
+| Rollout | Requires the EP client release with `agent.operation`, a published `ao-task-agent` image, and AO-side enablement |
 | Completion | AO persists the invocation and sends its existing workflow callback; generic EP completion acknowledges the work item only |
 
 **Container Action output**
@@ -270,5 +270,5 @@ connect directly to databases, model providers, or MCP servers.
 | AO schemas | `syntara/backend/src/syntara/schemas/workflows/v2/executors/{script,http_request,agentic,aap_*}.schema.json` (AO `devel`) |
 | AO output models | `…/workflow_definition.py` → `ScriptOutput`, `HttpRequestOutput`, `AgenticOutput`, `AAP*Output` (AO `devel`) |
 | AO dispatch | `…/workflows/workflow_engine/activities/ep/ep_dispatch_activity.py`, `node_container_images`, `script_nodes_enabled` (AO `devel`) |
-| Step plugins | `script-python/`, `script-bash/`, `http-request/`, and `agent-runtime/` manifests + `Makefile` (this feature branch) |
+| Step plugins | `script-python/`, `script-bash/`, `http-request/`, and `ao-task-agent/` manifests + `Makefile` (this feature branch) |
 | EP protocol | `syntara-execution-plane` `docs/workload-protocol.md`, `docs/integration.md` (EP `devel`) |

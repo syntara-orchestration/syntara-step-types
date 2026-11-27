@@ -2,13 +2,13 @@
 apiVersion: syntara.io/v1alpha1
 kind: Action
 metadata:
-  name: agent-runtime
-  displayName: Agent Runtime
+  name: ao-task-agent
+  displayName: AO Task Agent
   description: Runs an isolated agent loop using host-provided model and MCP operations.
 spec:
   runtime:
     kind: custom-runner
-    entryPoint: "syntara_node_agent_runtime:AgentRuntimeStep"
+    entryPoint: "syntara_node_ao_task_agent:AOTaskAgentStep"
   input:
     kind: inline
     value:

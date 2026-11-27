@@ -2,12 +2,12 @@ apiVersion: syntara.io/v1alpha1
 kind: RuntimeBinding
 metadata:
   namespace: syntara
-  name: agent-runtime-binding
+  name: ao-task-agent-binding
 spec:
   plugin:
     source: plugin.yaml
   workloads:
-    agent-runtime:
+    ao-task-agent:
       default: default
       options:
         - name: default
@@ -18,4 +18,4 @@ spec:
               - name: python
                 executable: /usr/local/bin/python
           image:
-            buildTarget: agent-runtime
+            buildTarget: ao-task-agent

@@ -9,7 +9,7 @@ from typing import Any
 
 from syntara_plugin.runtime import ActionStep, ExecutionContext
 
-from ._models import AgentRuntimeInput, AgentRuntimeOutput
+from ._models import AOTaskAgentInput, AOTaskAgentOutput
 
 _MAX_TOTAL_TOOL_CALLS = 32
 _MAX_TRACE_INPUT_CHARS = 2_048
@@ -138,7 +138,7 @@ def _record_usage(response: dict[str, Any], usage_log: list[dict[str, Any]]) -> 
 
 def _extract_structured_output(
     context: ExecutionContext,
-    inputs: AgentRuntimeInput,
+    inputs: AOTaskAgentInput,
     content: Any,
     turn_index: int,
     usage_log: list[dict[str, Any]],
@@ -190,7 +190,7 @@ def _extract_structured_output(
 
 def _fallback_from_direct_structured_output(
     context: ExecutionContext,
-    inputs: AgentRuntimeInput,
+    inputs: AOTaskAgentInput,
     messages: list[dict[str, Any]],
     turn_index: int,
     usage_log: list[dict[str, Any]],
@@ -221,7 +221,7 @@ def _fallback_from_direct_structured_output(
 
 def _finalize_response(
     context: ExecutionContext,
-    inputs: AgentRuntimeInput,
+    inputs: AOTaskAgentInput,
     response: dict[str, Any],
     mode: str,
     messages: list[dict[str, Any]],
@@ -251,12 +251,12 @@ def _finalize_response(
     return content, metadata, final_response_metadata, turn_index
 
 
-class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
+class AOTaskAgentStep(ActionStep[AOTaskAgentInput, AOTaskAgentOutput]):
     """Run model turns and authorized MCP calls within one workload invocation."""
 
     @staticmethod
     def _response_mode(
-        inputs: AgentRuntimeInput, tools: list[dict[str, Any]], turn_index: int
+        inputs: AOTaskAgentInput, tools: list[dict[str, Any]], turn_index: int
     ) -> str:
         if inputs.response_schema is not None and not tools and turn_index == 1:
             return "structured_direct"
@@ -273,7 +273,7 @@ class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
             return
         messages.append(assistant_message)
 
-    def run(self, inputs: AgentRuntimeInput, context: ExecutionContext) -> AgentRuntimeOutput:
+    def run(self, inputs: AOTaskAgentInput, context: ExecutionContext) -> AOTaskAgentOutput:
         """Advance the conversation until the model returns a final answer."""
         messages = [dict(message) for message in inputs.messages]
         tools = [dict(tool) for tool in inputs.tools]
@@ -318,7 +318,7 @@ class AgentRuntimeStep(ActionStep[AgentRuntimeInput, AgentRuntimeOutput]):
             )
             if not isinstance(content, (str, dict)):
                 raise RuntimeError("AO returned an invalid final response.")
-            return AgentRuntimeOutput(
+            return AOTaskAgentOutput(
                 content=content,
                 last_turn_index=turn_index,
                 total_duration_ms=int((time.perf_counter() - started_at) * 1000),

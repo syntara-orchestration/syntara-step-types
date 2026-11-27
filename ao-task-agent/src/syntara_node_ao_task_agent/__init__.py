@@ -1,5 +1,5 @@
 """SDK Action that runs an agent turn loop inside an isolated workload."""
 
-from .executor import AgentRuntimeStep
+from .executor import AOTaskAgentStep
 
-__all__ = ["AgentRuntimeStep"]
+__all__ = ["AOTaskAgentStep"]

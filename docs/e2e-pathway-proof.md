@@ -4,7 +4,7 @@
 > **Product images + identities** are required. Fixture-era `script.v1` /
 > `syntara-sdk-script` / `migration-test` are **not** sufficient acceptance.
 >
-> This proof was recorded with contracts `0.1.0a4`; the Agent Runtime milestone
+> This proof was recorded with contracts `0.1.0a4`; the AO Task Agent milestone
 > uses contracts `0.1.0a7`, which this historical run does not validate.
 
 Companion docs: [`compatibility-matrix.md`](compatibility-matrix.md),

@@ -1,4 +1,4 @@
-"""Typed inputs and output for the isolated agent runtime Action."""
+"""Typed inputs and output for the isolated AO task agent Action."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class AgentRuntimeInput(BaseModel):
+class AOTaskAgentInput(BaseModel):
     """Prepared conversation and host-authorized operation descriptions."""
 
     contract_version: int = Field(ge=1, le=1)
@@ -17,7 +17,7 @@ class AgentRuntimeInput(BaseModel):
     max_model_calls: int = Field(default=8, ge=1, le=32)
 
 
-class AgentRuntimeOutput(BaseModel):
+class AOTaskAgentOutput(BaseModel):
     """Final response returned to AO for invocation persistence."""
 
     contract_version: int = Field(default=1, ge=1, le=1)

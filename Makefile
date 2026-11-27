@@ -1,6 +1,6 @@
-NODES := http-request script-python script-bash agent-runtime
-SDK_PLUGINS := http-request script-python script-bash agent-runtime
-PYTHON_PACKAGES := http-request script-runtime agent-runtime
+NODES := http-request script-python script-bash ao-task-agent
+SDK_PLUGINS := http-request script-python script-bash ao-task-agent
+PYTHON_PACKAGES := http-request script-runtime ao-task-agent
 CONTAINER_ENGINE ?= podman
 REGISTRY ?= localhost
 TAG ?= dev
@@ -87,7 +87,7 @@ check: lint typecheck test-unit
 .PHONY: sdk-plugin-check
 sdk-plugin-check:
 	@case "$(PLUGIN)" in \
-		http-request|script-python|script-bash|agent-runtime) ;; \
+		http-request|script-python|script-bash|ao-task-agent) ;; \
 		*) echo 'Set PLUGIN to one of: $(SDK_PLUGINS)'; exit 2 ;; \
 	esac
 
@@ -101,7 +101,7 @@ sdk-plugin-run: sdk-plugin-check
 		http-request) filter='.ok == true and .output.status_code == 200' ;; \
 		script-python) filter='.ok == true and .output.return_code == 0 and .output.stdout_json.result == 42' ;; \
 		script-bash) filter='.ok == true and .output.return_code == 0 and .output.stdout == "hello from bash\n"' ;; \
-		agent-runtime) echo 'Agent Runtime source execution requires AO host callbacks; build and run it through EP.'; exit 0 ;; \
+		ao-task-agent) echo 'AO Task Agent source execution requires AO host callbacks; build and run it through EP.'; exit 0 ;; \
 	esac; \
 	$(UV) run --frozen --all-packages --directory "$(PLUGIN)" syntara-plugin run --mode source --input-file example.json --json | jq -e "$$filter"
 

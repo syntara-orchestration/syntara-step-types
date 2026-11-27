@@ -17,7 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".test-artifacts"
 INVENTORY = ARTIFACTS / "build-inventory.json"
-PLUGINS = ("http-request", "script-python", "script-bash", "agent-runtime")
+PLUGINS = ("http-request", "script-python", "script-bash", "ao-task-agent")
 _IMAGE_REFERENCE = re.compile(r"^(.+)@(sha256:[0-9a-f]{64})$")
 
 

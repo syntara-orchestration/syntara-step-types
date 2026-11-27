@@ -10,7 +10,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /uvx /bin/
 COPY pyproject.toml uv.lock /app/
 COPY script-runtime/pyproject.toml /app/script-runtime/pyproject.toml
 COPY http-request/pyproject.toml /app/http-request/pyproject.toml
-COPY agent-runtime/pyproject.toml /app/agent-runtime/pyproject.toml
+COPY ao-task-agent/pyproject.toml /app/ao-task-agent/pyproject.toml
 RUN uv export --frozen --no-dev --package syntara-node-http-request \
     --no-emit-workspace --no-emit-package syntara-plugin-contracts \
     --output-file /app/requirements.txt \

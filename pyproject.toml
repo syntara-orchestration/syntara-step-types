@@ -25,7 +25,7 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["script-runtime", "http-request", "agent-runtime"]
+members = ["script-runtime", "http-request", "ao-task-agent"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -52,7 +52,7 @@ module = ["syntara_plugin.*", "grpc.*", "respx.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["syntara_node_http_request", "syntara_node_script", "syntara_node_agent_runtime"]
+source = ["syntara_node_http_request", "syntara_node_script", "syntara_node_ao_task_agent"]
 
 [tool.coverage.report]
 show_missing = true

@@ -1,4 +1,4 @@
-# Agent Runtime
+# AO Task Agent
 
 This private SDK Action runs the agent's message and tool decision loop in one
 isolated workload. It has no model or MCP client. The SDK Toolbox asks the host
