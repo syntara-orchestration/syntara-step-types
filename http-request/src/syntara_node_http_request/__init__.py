@@ -9,6 +9,7 @@ from syntara_plugin.runtime import (
     ActionStep,
     ContainerInvocationError,
     ErrorCategory,
+    ErrorCode,
     ExecutionContext,
     FailureCode,
     StepFailure,
@@ -31,9 +32,18 @@ _EXECUTE_SEMAPHORE = threading.Semaphore(8)
 _ERROR_CATEGORIES = {
     FailureCode.REMOTE_REJECTED: ErrorCategory.BUSINESS,
     FailureCode.UPSTREAM_TRANSIENT: ErrorCategory.DEPENDENCY,
+    FailureCode.RATE_LIMITED: ErrorCategory.DEPENDENCY,
     FailureCode.TIMEOUT: ErrorCategory.TIMEOUT,
     FailureCode.POLICY_DENIED: ErrorCategory.POLICY,
     FailureCode.CANCELLED: ErrorCategory.CANCELLED,
+}
+_ERROR_CODES = {
+    FailureCode.REMOTE_REJECTED: ErrorCode.BUSINESS_RULE_FAILED,
+    FailureCode.UPSTREAM_TRANSIENT: ErrorCode.DEPENDENCY_FAILED,
+    FailureCode.RATE_LIMITED: ErrorCode.RATE_LIMITED,
+    FailureCode.TIMEOUT: ErrorCode.TIMEOUT_EXCEEDED,
+    FailureCode.POLICY_DENIED: ErrorCode.POLICY_DENIED,
+    FailureCode.CANCELLED: ErrorCode.CANCELLED,
 }
 _HTTP_ENDPOINT_CONTEXT_KEY = "httpEndpoint"
 
@@ -80,7 +90,7 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
                 1,
                 "Server busy: too many concurrent executions",
                 "Server busy: too many concurrent executions",
-                code=FailureCode.UPSTREAM_TRANSIENT.value,
+                code=ErrorCode.DEPENDENCY_FAILED.value,
                 category=ErrorCategory.DEPENDENCY,
                 retryable=True,
             )
@@ -114,7 +124,7 @@ class HttpRequestStep(ActionStep[HttpInput, HttpOutput]):
                     request_inputs = inputs.model_copy(update={"headers": headers})
                 return execute_http_request(request_inputs, context.cancellation)
             except ContainerInvocationError as exc:
-                code = exc.code.value if isinstance(exc.code, FailureCode) else str(exc.code)
+                code = _ERROR_CODES.get(exc.code, ErrorCode.INTERNAL_ERROR).value
                 category = _ERROR_CATEGORIES.get(exc.code, ErrorCategory.INTERNAL)
                 raise StepFailure(
                     1,

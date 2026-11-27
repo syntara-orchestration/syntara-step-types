@@ -10,12 +10,11 @@ from urllib.parse import urlsplit
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.helpers import execute_events, execute_output
+from tests.integration.helpers import execute_events, execute_output, resolved_step_revision_id
 from tests.integration.service_types import TEST_BEARER_TOKEN, ImageServices
 
 pytestmark = pytest.mark.integration
 
-_STEP_REVISION_ID = "syntara.http-request.http-request"
 _RUNTIME_ABI = "syntara.container/v1alpha1"
 _BEARER_CREDENTIAL = "syntara.http.bearer"
 
@@ -32,7 +31,7 @@ def _execute_with_credential_callback(
     credential_requests: list[container_pb2.CredentialRequest] = []
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(stub),
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"url": url, "credential_name": _BEARER_CREDENTIAL}).encode(),
         runtime_context_json=json.dumps({"httpEndpoint": endpoint}).encode(),
@@ -102,7 +101,7 @@ def _execute(
 
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(stub),
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps(inputs).encode(),
         runtime_context_json=b"{}",
@@ -114,7 +113,8 @@ def _execute(
 def test_health_check(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
     response = http_stub.Health(container_pb2.HealthRequest())
     assert response.ready
-    assert _STEP_REVISION_ID in list(response.step_revision_ids)
+    assert len(response.step_revision_ids) == 1
+    assert response.step_revision_ids[0] == resolved_step_revision_id(http_stub)
 
 
 def test_get_request(
@@ -178,7 +178,7 @@ def test_sdk_built_image_blocks_private_redirect_over_grpc(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="test-http-private-redirect-001",
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(http_stub),
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps(
             {"url": f"{test_upstream}/redirect/private", "follow_redirects": True}
@@ -201,7 +201,7 @@ def test_sdk_built_image_blocks_private_redirect_over_grpc(
 def test_ssrf_private_ip_blocked(http_stub: container_pb2_grpc.ContainerServiceStub) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="test-ssrf-001",
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(http_stub),
         runtime_abi=_RUNTIME_ABI,
         inputs_json=json.dumps({"url": "http://192.168.1.1/secret"}).encode(),
         runtime_context_json=b"{}",

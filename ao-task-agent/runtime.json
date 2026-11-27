@@ -1,0 +1,6 @@
+{
+  "abi": "syntara.container/v1alpha1",
+  "adapter": {
+    "bindingsFactory": "syntara_node_ao_task_agent.__main__:create_bindings"
+  }
+}

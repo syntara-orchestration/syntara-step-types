@@ -12,7 +12,7 @@ import pytest
 import respx
 from syntara_node_http_request import HttpInput, HttpMethod, HttpRequestStep
 from syntara_node_http_request.__main__ import create_bindings
-from syntara_plugin.runtime import ExecutionContext, FailureCode, StepFailure
+from syntara_plugin.runtime import ErrorCode, ExecutionContext, FailureCode, StepFailure
 from syntara_plugin.runtime.credential_callback import CallbackCredentialProvider
 from syntara_plugin.runtime.protocol import container_pb2
 
@@ -207,7 +207,7 @@ def test_404_raises_non_retryable(
     respx.get("https://93.184.216.34/missing").mock(return_value=httpx.Response(404))
     with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/missing"), context)
-    assert exc_info.value.code == FailureCode.REMOTE_REJECTED.value
+    assert exc_info.value.code == ErrorCode.BUSINESS_RULE_FAILED.value
     assert not exc_info.value.retryable
 
 
@@ -216,7 +216,7 @@ def test_503_raises_retryable(step: HttpRequestStep, context: ExecutionContext, 
     respx.get("https://93.184.216.34/flaky").mock(return_value=httpx.Response(503))
     with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/flaky"), context)
-    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT.value
+    assert exc_info.value.code == ErrorCode.DEPENDENCY_FAILED.value
     assert exc_info.value.retryable
 
 
@@ -225,7 +225,7 @@ def test_429_raises_retryable(step: HttpRequestStep, context: ExecutionContext, 
     respx.get("https://93.184.216.34/limited").mock(return_value=httpx.Response(429))
     with pytest.raises(StepFailure) as exc_info:
         step.run(HttpInput(url="https://example.com/limited"), context)
-    assert exc_info.value.code == FailureCode.UPSTREAM_TRANSIENT.value
+    assert exc_info.value.code == ErrorCode.RATE_LIMITED.value
     assert exc_info.value.retryable
 
 

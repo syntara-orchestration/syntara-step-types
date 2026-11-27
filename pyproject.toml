@@ -3,8 +3,12 @@ name = "syntara-step-types"
 version = "0.1.0"
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "syntara-plugin-contracts>=0.1.0a6",
+    "syntara-plugin-contracts>=0.1.0a7",
 ]
+
+[tool.uv.sources]
+syntara-plugin-contracts = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git", rev = "8777a54d772d599dd805d1ab1157b566ad0dc055", subdirectory = "sdks/python/packages/contracts" }
+syntara-plugin-sdk = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git", rev = "8777a54d772d599dd805d1ab1157b566ad0dc055", subdirectory = "sdks/python/packages/sdk" }
 
 [dependency-groups]
 dev = [
@@ -17,11 +21,11 @@ dev = [
     "mypy>=1.8",
     "pyyaml>=6.0.3",
     "types-PyYAML>=6.0",
-    "syntara-plugin-sdk>=0.1.0a6",
+    "syntara-plugin-sdk>=0.1.0a7",
 ]
 
 [tool.uv.workspace]
-members = ["script-runtime", "http-request"]
+members = ["script-runtime", "http-request", "ao-task-agent"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -48,7 +52,7 @@ module = ["syntara_plugin.*", "grpc.*", "respx.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["syntara_node_http_request", "syntara_node_script"]
+source = ["syntara_node_http_request", "syntara_node_script", "syntara_node_ao_task_agent"]
 
 [tool.coverage.report]
 show_missing = true

@@ -17,7 +17,7 @@ def execute_events(
 ):
     """Yield ExecutionEvents from the bidi Execute stream.
 
-    Bidi protocol (contracts 0.1.0a6): the client opens the stream with the
+    Bidi protocol: the client opens the stream with the
     ExecuteRequest. A credential request fails the test: these steps declare
     no credentials, so the server is never expected to ask for one.
     """
@@ -26,6 +26,15 @@ def execute_events(
         if message.HasField("credential_request"):
             pytest.fail(f"unexpected credential request — {message.credential_request.name}")
         yield message.event
+
+
+def resolved_step_revision_id(stub: container_pb2_grpc.ContainerServiceStub) -> str:
+    """Return the immutable revision advertised by the resolved runtime binding."""
+    response = stub.Health(container_pb2.HealthRequest(), timeout=2)
+    revisions = list(response.step_revision_ids)
+    if len(revisions) != 1:
+        pytest.fail(f"Expected one resolved step revision, got {revisions!r}")
+    return revisions[0]
 
 
 def execute_output(
