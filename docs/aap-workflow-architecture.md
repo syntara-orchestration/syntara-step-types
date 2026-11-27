@@ -10,6 +10,12 @@ the review input for AAP-98909. It is not the approval. Sections marked
 *unresolved* must remain explicit until a linked decision is recorded; this
 document does not decide them.
 
+Behavioral claims in §3–§8 and §10 were verified against the implementation on
+branch `ana/aap-98907-aap-workflow` (poll interval 5 s; consecutive-error cap 5;
+pre-terminal adoption states `new`/`pending`/`waiting`/`running`; container
+user `65532:65532`, port 50051; hashed PyPI-pinned dependencies) and the AO
+dispatch on `feat/aap-98907-aap-workflow-ep`.
+
 Companion material:
 
 - Implementation: [`aap-workflow/`](../aap-workflow/) in this repository
@@ -75,6 +81,12 @@ outputs, and error handling; only the executor location differs. The dispatch
 path is gated behind the `workflow_engine.aap_workflow_ep_dispatch_enabled`
 runtime setting (default false) until the operator/version decisions are
 recorded.
+
+Reuse boundaries: the shared AO/EP dispatch, callback/reconciliation, and
+facade integration are owned by
+[AAP-95934](https://redhat.atlassian.net/browse/AAP-95934) and are consumed,
+not duplicated, here. The AO↔OpenShift connection itself is the AAP-98873
+integration (§9).
 
 ## 3. Workflow-template/API compatibility
 
@@ -214,17 +226,40 @@ to a `StepFailure`); AO maps `status == "failed"` to node failure.
 
 ## 9. Customer prerequisites and cluster boundaries
 
-Shared with [AAP-98873](https://redhat.atlassian.net/browse/AAP-98873); the
-customer provides and configures the OpenShift cluster.
+The customer provides and configures the OpenShift cluster; AO presents the
+cluster connection through the OpenShift Integration delivered by
+[AAP-98873](https://redhat.atlassian.net/browse/AAP-98873) (closed) — the same
+Integration, Credential, permission, health-check, and administration patterns
+used for MCP servers, LLM providers, and AAP. This step consumes that shared
+connection contract; it does not define its own cluster connection.
+
+**Customer prerequisites:**
 
 - A reachable, supported AAP instance (gateway controller API over HTTPS) and
   authorized credentials (token, or username+password).
 - A workflow job template containing at least one child job.
 - An AO AAP integration configured with the gateway base URL (and optional TLS
-  verify/CA settings).
+  verify/CA settings), resolved by AO into the step's runtime context.
+- An AO OpenShift integration (AAP-98873) pointing at the execution-target
+  cluster, with least-privilege permissions sufficient to run cold-start Jobs
+  and pull the step image; connection success is distinguished from
+  execution-target readiness and workload authorization by that integration's
+  test-connection and synchronization status.
+
+**Boundary with AAP-98873 (what that story owns vs this step):**
+
+- AAP-98873 owns: the OpenShift Integration lifecycle (configure, validate,
+  synchronize connection/credential/TLS changes with stable identity
+  correlation and observable recovery), least-privilege permission
+  prerequisites, and supported-cluster evidence.
+- AAP-95934 owns: the shared AO/EP dispatch, callback/reconciliation, and
+  facade integration this step's invocation rides on.
+- This step (AAP-98893) owns: the AAP Workflow image, its payload/credential
+  and output mapping, step-specific behavior, and end-to-end acceptance — each
+  step retains its own image release per the AAP-98873 scope.
 - The AO↔EP boundary is the existing `WorkExecute` command path plus the
-  `syntara.aap` integration projection; AO does not create OpenShift
-  Pods/Jobs itself. Step images are referenced per-work via the registry
+  `syntara.aap` integration projection; AO does not create OpenShift Pods/Jobs
+  itself. Step images are referenced per-work via the registry
   (`RELATED_IMAGE_AAP_WORKFLOW` override available).
 
 **Unresolved — operator responsibilities (epic open question 1, AAP-98912):**
