@@ -10,11 +10,9 @@ import uuid
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.helpers import execute_events, execute_output
+from tests.integration.helpers import execute_events, execute_output, resolved_step_revision_id
 
 pytestmark = pytest.mark.integration
-
-_STEP_REVISION_ID = "syntara.http-request.http-request"
 
 
 def _upstream_state(
@@ -22,7 +20,7 @@ def _upstream_state(
 ) -> dict:
     request = container_pb2.ExecuteRequest(
         invocation_id=invocation_id,
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(stub),
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps({"url": f"{url}/state"}).encode(),
         runtime_context_json=b"{}",
@@ -36,7 +34,7 @@ def test_http_cancel_stops_io_and_keeps_control_rpcs_available(
 ) -> None:
     request = container_pb2.ExecuteRequest(
         invocation_id="http-cancel-regression",
-        step_revision_id=_STEP_REVISION_ID,
+        step_revision_id=resolved_step_revision_id(http_stub),
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps({"url": f"{test_upstream}/cancel"}).encode(),
         runtime_context_json=b"{}",

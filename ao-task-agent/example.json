@@ -1,0 +1,21 @@
+{
+  "contract_version": 1,
+  "messages": [
+    {"role": "system", "content": "Answer using the supplied report."},
+    {"role": "user", "content": "Check the status of order 42. Order 42 is pending."}
+  ],
+  "tools": [
+    {
+      "handle": "tool-7",
+      "name": "order_status",
+      "description": "Read an order's status",
+      "input_schema": {
+        "type": "object",
+        "properties": {"order": {"type": "string"}},
+        "required": ["order"]
+      }
+    }
+  ],
+  "response_schema": null,
+  "max_model_calls": 8
+}

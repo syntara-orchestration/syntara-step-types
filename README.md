@@ -80,12 +80,15 @@ runtime.
 | HTTP request | `http-request/` | `syntara-node-http-request` | — |
 | Python script | `script-python/` | `syntara-node-script-python` | `ao-python-rhel9` |
 | Bash script | `script-bash/` | `syntara-node-script-bash` | `ao-bash-rhel9` |
+| AO Task Agent | `ao-task-agent/` | `syntara-node-ao-task-agent` | `ao-task-agent-rhel9` |
 
 The `make node-image` targets call `syntara-plugin build` to build the plugin,
 runtime binding, and workload image archives. They then load the workload archive
 into the local container engine and apply the local development image name. Konflux
 builds the Python and Bash step images separately for the AO devel and early-access
-applications using the image names in the last column.
+applications using the image names in the last column. The AO Task Agent row is an
+implementation milestone; its AO image pipeline and shared Execution Plane client
+release are rollout prerequisites.
 
 Each plugin folder contains its own `Containerfile`, SDK manifest, and example
 input. Shared script execution code lives in `script-runtime/`. Build from the

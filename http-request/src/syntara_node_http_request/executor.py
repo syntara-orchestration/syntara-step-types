@@ -411,7 +411,10 @@ async def _execute_http_request(inputs: HttpInput) -> HttpOutput:
 
     if status_code >= HTTPStatus.BAD_REQUEST:
         retryable = status_code in _RETRYABLE_STATUS
-        code = FailureCode.UPSTREAM_TRANSIENT if retryable else FailureCode.REMOTE_REJECTED
+        if status_code == HTTPStatus.TOO_MANY_REQUESTS:
+            code = FailureCode.RATE_LIMITED
+        else:
+            code = FailureCode.UPSTREAM_TRANSIENT if retryable else FailureCode.REMOTE_REJECTED
         raise ContainerInvocationError(
             code,
             f"HTTP {status_code} {reason_phrase}",

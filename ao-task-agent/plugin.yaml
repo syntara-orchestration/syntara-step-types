@@ -1,0 +1,16 @@
+apiVersion: syntara.io/v1alpha1
+kind: Plugin
+metadata:
+  namespace: syntara
+  name: ao-task-agent
+  version: 0.1.0
+  displayName: AO Task Agent
+  description: Isolated agent reasoning loop with host callbacks for model and MCP operations.
+spec:
+  documentation:
+    path: README.md
+  workloads:
+    ao-task-agent:
+      image: ao-task-agent-runner
+  targets:
+    - manifest.yaml

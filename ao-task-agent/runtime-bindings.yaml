@@ -1,0 +1,21 @@
+apiVersion: syntara.io/v1alpha1
+kind: RuntimeBinding
+metadata:
+  namespace: syntara
+  name: ao-task-agent-binding
+spec:
+  plugin:
+    source: plugin.yaml
+  workloads:
+    ao-task-agent:
+      default: default
+      options:
+        - name: default
+          displayName: Default runtime
+          description: Container image built from this plugin's Containerfile.
+          runtime:
+            components:
+              - name: python
+                executable: /usr/local/bin/python
+          image:
+            buildTarget: ao-task-agent

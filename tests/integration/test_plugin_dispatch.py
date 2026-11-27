@@ -55,7 +55,7 @@ def test_execute_using_compiled_plugin_target(
     output_digest = canonical_json_digest(target["output"])
     request = container_pb2.ExecuteRequest(
         invocation_id=f"compiled-{step}",
-        step_revision_id=target["identity"],
+        step_revision_id=target["step_revision_id"],
         runtime_abi="syntara.container/v1alpha1",
         inputs_json=json.dumps(inputs).encode(),
         runtime_context_json=json.dumps({"outputSchemaDigest": output_digest}).encode(),
@@ -67,7 +67,7 @@ def test_execute_using_compiled_plugin_target(
         "script-bash": image_services.bash,
     }[step]
     assert (
-        target["identity"]
+        target["step_revision_id"]
         in stub.Health(container_pb2.HealthRequest(), timeout=2).step_revision_ids
     )
     events = list(execute_events(stub, request, timeout=12))

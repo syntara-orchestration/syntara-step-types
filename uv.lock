@@ -1,9 +1,10 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <3.15"
 
 [manifest]
 members = [
+    "syntara-node-ao-task-agent",
     "syntara-node-http-request",
     "syntara-node-script-runtime",
     "syntara-step-types",
@@ -442,6 +443,18 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-api"
+version = "1.45.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/14/cf3a6b6448849656e1e5f4e2101f3988dc6789724050096aba1bc5ccf592/opentelemetry_api-1.45.2.tar.gz", hash = "sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4", size = 73277, upload-time = "2026-10-29T17:29:37.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/2d/610db864d7513158cebb8f36cc88e67e73bd6c7aa1905ef18d89e1281c81/opentelemetry_api-1.45.2-py3-none-any.whl", hash = "sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34", size = 60335, upload-time = "2026-10-29T17:29:06.955Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
@@ -804,6 +817,17 @@ wheels = [
 ]
 
 [[package]]
+name = "syntara-node-ao-task-agent"
+version = "0.1.0"
+source = { editable = "ao-task-agent" }
+dependencies = [
+    { name = "syntara-plugin-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=8777a54d772d599dd805d1ab1157b566ad0dc055" }]
+
+[[package]]
 name = "syntara-node-http-request"
 version = "0.1.0"
 source = { editable = "http-request" }
@@ -817,7 +841,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" },
+    { name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=8777a54d772d599dd805d1ab1157b566ad0dc055" },
 ]
 
 [[package]]
@@ -832,37 +856,30 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" },
+    { name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=8777a54d772d599dd805d1ab1157b566ad0dc055" },
 ]
 
 [[package]]
 name = "syntara-plugin-contracts"
-version = "0.1.0a6"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.0a7"
+source = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=8777a54d772d599dd805d1ab1157b566ad0dc055#8777a54d772d599dd805d1ab1157b566ad0dc055" }
 dependencies = [
     { name = "grpcio" },
     { name = "jsonschema" },
+    { name = "opentelemetry-api" },
     { name = "protobuf" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/3b/e1b9880d6c46ae2374686d4fe82ed78beb135cd04ab721ced0e0ac944747/syntara_plugin_contracts-0.1.0a6.tar.gz", hash = "sha256:0f3b84e22cc8ec03fa1b59b353fcef268f93df8f88af119593732e0ccced8c9f", size = 114825, upload-time = "2026-11-17T22:04:07.031Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/34/cde0e62ae0ce063891f661c18ce2b605e8a528648f43d07a09b934eb65d7/syntara_plugin_contracts-0.1.0a6-py3-none-any.whl", hash = "sha256:95d49c6d328227948e58189b8420da2bf4ae75010bf024cd7ebaf0969813805b", size = 161827, upload-time = "2026-11-17T22:04:05.749Z" },
-]
 
 [[package]]
 name = "syntara-plugin-sdk"
-version = "0.1.0a6"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.0a7"
+source = { git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fsdk&rev=8777a54d772d599dd805d1ab1157b566ad0dc055#8777a54d772d599dd805d1ab1157b566ad0dc055" }
 dependencies = [
     { name = "pyyaml" },
     { name = "syntara-plugin-contracts" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/85/7a/09d7d26b63bd76eebe03232a3a6f65003d6b5311ec28946e0570e628cafb/syntara_plugin_sdk-0.1.0a6.tar.gz", hash = "sha256:4b7bfc28636d400a72d4c4481b5464a6b49b9138d0e6557fcf47471f24c2a1b0", size = 150685, upload-time = "2026-11-17T22:04:30.436Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/b7/0a00c8c4d588cfaa1a427250e2196d3b977e43e720f79a16bd8c7b8445a7/syntara_plugin_sdk-0.1.0a6-py3-none-any.whl", hash = "sha256:6ef4eef69912698b76467e9a291ec85b46baadccbbbfe9fd8add7276c91c20d0", size = 172065, upload-time = "2026-11-17T22:04:29.038Z" },
 ]
 
 [[package]]
@@ -888,7 +905,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "syntara-plugin-contracts", specifier = ">=0.1.0a6" }]
+requires-dist = [{ name = "syntara-plugin-contracts", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fcontracts&rev=8777a54d772d599dd805d1ab1157b566ad0dc055" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -900,7 +917,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = "==0.14.3" },
-    { name = "syntara-plugin-sdk", specifier = ">=0.1.0a6" },
+    { name = "syntara-plugin-sdk", git = "https://github.com/syntara-orchestration/syntara-plugin-sdk.git?subdirectory=sdks%2Fpython%2Fpackages%2Fsdk&rev=8777a54d772d599dd805d1ab1157b566ad0dc055" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

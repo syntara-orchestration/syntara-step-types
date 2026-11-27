@@ -2,26 +2,19 @@
 
 from __future__ import annotations
 
-import logging
-import signal
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from types import FrameType
 
-import grpc
 import yaml
 from syntara_plugin.runtime import (
     InstalledStepManifest,
     StepBindings,
     StepDescriptor,
-    add_container_runtime_service,
-    step_registry_from_bindings,
 )
+from syntara_plugin.runtime.server import main as serve_runtime
 
 from syntara_node_http_request import HttpRequestStep
 
 STEP_IDENTITY = "syntara.http-request.http-request"
-GRPC_ADDRESS = "0.0.0.0:50051"
 
 
 def create_bindings(manifest_path: Path | None = None) -> StepBindings:
@@ -54,24 +47,7 @@ def create_bindings(manifest_path: Path | None = None) -> StepBindings:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-    registry = step_registry_from_bindings(create_bindings())
-
-    # Reserve enough threads so Cancel and Health RPCs can always get a thread,
-    # even when the maximum number of concurrent Execute calls are in flight.
-    server = grpc.server(ThreadPoolExecutor(max_workers=10))
-    add_container_runtime_service(server, registry)
-    server.add_insecure_port(GRPC_ADDRESS)
-    server.start()
-    logging.info(
-        "HTTP request step server started on %s (identity=%s)", GRPC_ADDRESS, STEP_IDENTITY
-    )
-
-    def _shutdown(sig: int, frame: FrameType | None) -> None:
-        server.stop(5)
-
-    signal.signal(signal.SIGTERM, _shutdown)
-    server.wait_for_termination()
+    serve_runtime()
 
 
 if __name__ == "__main__":
