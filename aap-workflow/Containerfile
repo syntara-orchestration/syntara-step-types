@@ -1,0 +1,28 @@
+# Provisional base image pending the release-route decision (AAP-98910/AAP-98911);
+# mirrors http-request so the scaffold builds today.
+FROM python:3.12-slim AS base
+WORKDIR /app
+
+FROM base AS builder
+# Runtime closure exported from uv.lock. Regenerate with the command in the file header.
+COPY aap-workflow/requirements.txt /tmp/requirements.txt
+COPY aap-workflow/build-requirements.txt /tmp/build-requirements.txt
+RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r /tmp/requirements.txt
+COPY aap-workflow/pyproject.toml /app/pyproject.toml
+COPY aap-workflow/manifest.yaml /app/manifest.yaml
+COPY aap-workflow/src /app/src
+# Build tools stay out of the runtime prefix. The local tree is installed with
+# --no-deps so pip cannot resolve a newer dependency than the lockfile.
+RUN pip install --no-cache-dir --require-hashes --only-binary :all: \
+        --target /tmp/build-deps -r /tmp/build-requirements.txt \
+    && PYTHONPATH=/tmp/build-deps pip wheel --no-cache-dir --no-deps --no-build-isolation \
+        --only-binary :all: --wheel-dir /tmp/wheels . \
+    && pip install --no-cache-dir --no-deps --only-binary :all: /tmp/wheels/*.whl \
+    && rm -rf /tmp/requirements.txt /tmp/build-requirements.txt /tmp/build-deps /tmp/wheels
+
+FROM base
+COPY --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=builder /usr/local/bin /usr/local/bin
+USER 65532:65532
+EXPOSE 50051
+ENTRYPOINT ["python", "-m", "syntara_node_aap_workflow"]

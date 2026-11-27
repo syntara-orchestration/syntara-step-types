@@ -15,7 +15,7 @@ import grpc
 import pytest
 from syntara_plugin.runtime.protocol import container_pb2, container_pb2_grpc
 
-from tests.integration.service_types import TEST_BEARER_TOKEN, ImageServices
+from tests.integration.service_types import AAP_TEST_TOKEN, TEST_BEARER_TOKEN, ImageServices
 from tests.support.step_type_artifacts import (
     ARTIFACTS,
     PLUGINS,
@@ -27,6 +27,9 @@ _PODMAN = "podman"
 _UPSTREAM_IP = "8.254.250.2"
 _UPSTREAM_URL = "http://upstream.example:8000"
 _UPSTREAM_SOURCE = Path(__file__).with_name("http_upstream.py").read_text(encoding="utf-8")
+_AAP_UPSTREAM_IP = "8.254.250.3"
+_AAP_UPSTREAM_URL = "https://upstream.example:8443"
+_AAP_UPSTREAM_SOURCE = Path(__file__).with_name("aap_upstream.py").read_text(encoding="utf-8")
 
 
 def _command(command: list[str], *, timeout: float = 45) -> str:
@@ -228,9 +231,9 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                     "--network",
                     upstream_network,
                     "--volume",
-                    f"{certificate}:/tmp/upstream.crt:ro",
+                    f"{certificate}:/tmp/upstream.crt:ro,Z",
                     "--volume",
-                    f"{private_key}:/tmp/upstream.key:ro",
+                    f"{private_key}:/tmp/upstream.key:ro,Z",
                     "--env",
                     "TLS_CERT_FILE=/tmp/upstream.crt",
                     "--env",
@@ -249,7 +252,44 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
             )
             _wait_upstream(upstream_name)
 
+            aap_upstream_name = f"syntara-test-aap-upstream-{run_id}"
+            names.append(aap_upstream_name)
+            _command(
+                [
+                    _PODMAN,
+                    "run",
+                    "--detach",
+                    "--name",
+                    aap_upstream_name,
+                    "--network",
+                    upstream_network,
+                    "--volume",
+                    f"{certificate}:/tmp/upstream.crt:ro,Z",
+                    "--volume",
+                    f"{private_key}:/tmp/upstream.key:ro,Z",
+                    "--env",
+                    "TLS_CERT_FILE=/tmp/upstream.crt",
+                    "--env",
+                    "TLS_KEY_FILE=/tmp/upstream.key",
+                    "--env",
+                    f"AAP_TEST_TOKEN={AAP_TEST_TOKEN}",
+                    "--ip",
+                    _AAP_UPSTREAM_IP,
+                    "--publish",
+                    "127.0.0.1::8000",
+                    "--entrypoint",
+                    "python3.12",
+                    images["script-python"],
+                    "-u",
+                    "-c",
+                    _AAP_UPSTREAM_SOURCE,
+                ]
+            )
+            _wait_upstream(aap_upstream_name)
+            aap_state_port = _published_port(aap_upstream_name, 8000)
+
             stubs: dict[str, container_pb2_grpc.ContainerServiceStub] = {}
+            aap_container_name = ""
             for plugin in PLUGINS:
                 name = f"syntara-test-{plugin}-{run_id}"
                 names.append(name)
@@ -266,6 +306,10 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                 ]
                 if plugin == "http-request":
                     command.extend(["--add-host", f"upstream.example:{_UPSTREAM_IP}"])
+                if plugin == "aap-workflow":
+                    # The fake AAP gateway answers for upstream.example on the
+                    # shared internal network, at its own IP.
+                    command.extend(["--add-host", f"upstream.example:{_AAP_UPSTREAM_IP}"])
                 command.append(images[plugin])
                 _command(command)
                 if plugin == "http-request":
@@ -294,6 +338,14 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                             "Path('/tmp/upstream-ca.crt').read_bytes())",
                         ]
                     )
+                if plugin == "aap-workflow":
+                    user_id = _command([_PODMAN, "exec", name, "id", "-u"]).strip()
+                    if user_id != "65532":
+                        raise RuntimeError(
+                            f"AAP workload must run as UID 65532, got UID {user_id!r}"
+                        )
+                    _command([_PODMAN, "network", "connect", upstream_network, name])
+                    aap_container_name = name
                 port = _published_port(name, 50051)
                 channel, stubs[plugin] = _wait_ready(name, port)
                 channels.append(channel)
@@ -302,8 +354,13 @@ def image_services(request: pytest.FixtureRequest) -> Iterator[ImageServices]:
                 http=stubs["http-request"],
                 python=stubs["script-python"],
                 bash=stubs["script-bash"],
+                aap_workflow=stubs["aap-workflow"],
                 upstream_url=_UPSTREAM_URL,
                 https_upstream_url="https://upstream.example:8443",
+                aap_upstream_url=_AAP_UPSTREAM_URL,
+                aap_ca_certificate=certificate.read_text(encoding="utf-8"),
+                aap_container_name=aap_container_name,
+                aap_state_url=f"http://127.0.0.1:{aap_state_port}/state",
             )
         except BaseException as error:
             diagnostic_dir = _save_diagnostics(
@@ -359,3 +416,18 @@ def bash_script_stub(image_services: ImageServices) -> container_pb2_grpc.Contai
 @pytest.fixture(scope="session")
 def test_upstream(image_services: ImageServices) -> str:
     return image_services.upstream_url
+
+
+@pytest.fixture(scope="session")
+def aap_workflow_stub(image_services: ImageServices) -> container_pb2_grpc.ContainerServiceStub:
+    return image_services.aap_workflow
+
+
+@pytest.fixture(scope="session")
+def aap_environment(image_services: ImageServices) -> dict[str, object]:
+    """The runtime_context every AAP Workflow invocation needs in tests."""
+    return {
+        "aapEndpoint": image_services.aap_upstream_url,
+        "aapVerifySsl": True,
+        "aapCaCertificate": image_services.aap_ca_certificate,
+    }

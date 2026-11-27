@@ -21,11 +21,11 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["script-runtime", "http-request"]
+members = ["script-runtime", "http-request", "aap-workflow"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["script-runtime/tests", "http-request/tests", "tests"]
+testpaths = ["script-runtime/tests", "http-request/tests", "aap-workflow/tests", "tests"]
 addopts = "--import-mode=importlib"
 markers = [
     "integration: integration tests requiring container runtime (deselect with '-m \"not integration\"')",
@@ -48,7 +48,7 @@ module = ["syntara_plugin.*", "grpc.*", "respx.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["syntara_node_http_request", "syntara_node_script"]
+source = ["syntara_node_http_request", "syntara_node_script", "syntara_node_aap_workflow"]
 
 [tool.coverage.report]
 show_missing = true

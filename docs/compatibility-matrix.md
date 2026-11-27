@@ -2,7 +2,8 @@
 
 > First deliverable of the GA step-types migration pathway.  
 > Script rows are **filled** against AO `devel` + step-types `devel`.  
-> HTTP / agentic / AAP rows are **stubs** (AO contract frozen; EP cutover not done).  
+> The AAP workflow row is **filled** on the step-types side (AO cutover pending).  
+> HTTP / agentic / AAP job rows are **stubs** (AO contract frozen; EP cutover not done).  
 > Schema dialect: JSON Schema **2020-12** (SDK and AO). The execution result stays a `StandardOutputWrapper`. AO expression namespaces use an interim projection of that wrapper (see Envelope rule). Do not publish `statusCode`, `statusMessage`, or `errorResult` as template fields.
 
 ## How to read this matrix
@@ -219,21 +220,72 @@ output_freeze:
 
 ---
 
-## AAP workflow job template (stub)
+## AAP workflow job template (filled on step-types; AO cutover pending)
 
 | Field | Value |
 |---|---|
 | AO node type | `aap_workflow_job_template` |
-| AO activity today | launch/poll Controller in-process |
-| Plugin on step-types `devel` | **None** |
-| EP status | Deferred / hybrid |
-| Target identity / image | TBD |
+| AO activity today | launch/poll Controller in-process (`aap_workflow_job_template_activity`) |
+| Plugin on step-types `devel` | `syntara` / `aap-workflow` / Action `aap-workflow` |
+| **Step identity** | `syntara.aap.aap-workflow` |
+| Local image | `localhost/syntara-node-aap-workflow:<tag>` (`Makefile` `NODES`) |
+| Workload image ID | `aap-workflow-runner` |
+| Konflux / Quay (devel) | `…/ao-aap-workflow-rhel9:…` (provisional pipelines; release route AAP-98910/98911) |
+| EP status | Deferred / hybrid; AO invocation tracked in AAP-98873/AAP-98908 |
 
-**Output freeze (AO)**
+**Input mapping** — the adapter's full author surface is preserved (template
+by id or name+organization, `extra_vars`, `limit`, `scm_branch`, `tags` →
+`job_tags`, `skip_tags`, `labels`, inventory override, `timeout`).
+`integration_id` / `credential_id` are AO-only: AO resolves the AAP
+integration and credential into the step's runtime context
+(`aapEndpoint` / `aapVerifySsl` / `aapCaCertificate`) and the declared
+`syntara.aap.credential` binding. The full compatibility record — including
+the reserved `_syntara_launch_token` extra_vars key — is tracked on
+AAP-98907 and in `aap-workflow/README.md`.
 
-| Field |
-|---|
-| `workflow_job_id`, `workflow_job_url`, `workflow_job_status`, `artifacts`, `created`, `started`, `finished` |
+**Output freeze (business → `${node.*}`)** — the plugin's business output is
+itself the adapter's discriminated union on `status` (Completed/Failed), so
+the interim AO `status`/`error` envelope projection coincides with the
+business fields. "Required" below means required on **at least one** union
+branch: `created`/`started`/`finished` are required only on the completed
+branch; `error` and `workflow_job_status` only on the failed branch. Null
+fields are omitted from serialization.
+
+| Field | Type | Notes |
+|---|---|---|
+| `status` | string | `"completed"` \| `"failed"` — union discriminator |
+| `workflow_job_id` | integer | Required on both branches |
+| `workflow_job_status` | string | Required on the failed branch |
+| `error` | string | Required on the failed branch |
+| `created` / `started` / `finished` | string | Required on the completed branch |
+| `workflow_job_url` | string | Derived: `{base_url}/execution/jobs/workflow/{id}/output` |
+| `artifacts` | object | Truncated (largest keys dropped, marker `__syntara_truncated_artifacts__`) at the 1 MiB result limit |
+
+A parent that reaches a failure status is returned as the **failed branch of
+a successful SDK result** — AO must map `status == "failed"` to node failure
+to preserve today's behavior (the in-process activity failed the node with
+the output attached as error data).
+
+<!-- Machine-checked output freeze (see tests/test_matrix_drift.py). Do not
+edit without updating aap-workflow/manifest.yaml. For the union, required =
+required on at least one branch; the types map records the primary
+(non-null) type per field. -->
+```yaml
+output_freeze:
+  plugin: aap-workflow
+  required: [status, workflow_job_id, workflow_job_status, error, created, started, finished]
+  optional: [workflow_job_url, artifacts]
+  types:
+    status: string
+    workflow_job_id: integer
+    workflow_job_status: string
+    error: string
+    created: string
+    started: string
+    finished: string
+    workflow_job_url: string
+    artifacts: object
+```
 
 ---
 
